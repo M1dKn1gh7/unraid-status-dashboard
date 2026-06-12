@@ -180,8 +180,9 @@ def _fetch_tautulli_libraries():
             section_type = lib.get("section_type", "")
             if section_type == "artist":
                 result["music"] = {
-                    "count": int(lib.get("count", 0)),
-                    "child_count": int(lib.get("child_count", 0)),
+                    "artists": int(lib.get("count", 0)),
+                    "albums": int(lib.get("parent_count", 0)),
+                    "tracks": int(lib.get("child_count", 0)),
                 }
         return result
     except Exception:

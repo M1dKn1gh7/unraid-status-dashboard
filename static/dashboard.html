@@ -642,28 +642,26 @@
 
     <div class="card">
       <div class="card-label">Library</div>
-      <div class="metric-row">
-        <div class="metric">
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px;">
+        <div style="text-align:center; padding:12px 0; border-right:1px solid var(--border);">
+          <div style="font-size:11px; font-weight:500; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-dim); margin-bottom:8px;">Movies</div>
           <div class="metric-val" style="font-size:28px;" id="libMovies">--</div>
-          <div class="metric-label">Movies</div>
+          <div style="font-size:11px; color:var(--text-secondary); margin-top:4px;" id="libMoviesSize">--</div>
         </div>
-        <div class="metric">
+        <div style="text-align:center; padding:12px 0; border-right:1px solid var(--border);">
+          <div style="font-size:11px; font-weight:500; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-dim); margin-bottom:8px;">Shows</div>
           <div class="metric-val" style="font-size:28px;" id="libShows">--</div>
-          <div class="metric-label">Shows</div>
+          <div style="font-size:11px; color:var(--text-secondary); margin-top:4px;" id="libShowsEps">--</div>
+          <div style="font-size:11px; color:var(--text-secondary); margin-top:2px;" id="libShowsSize">--</div>
         </div>
-        <div class="metric">
-          <div class="metric-val" style="font-size:28px;" id="libEpisodes">--</div>
-          <div class="metric-label">Episodes</div>
-        </div>
-        <div class="metric">
-          <div class="metric-val" style="font-size:28px;" id="libMusic">--</div>
-          <div class="metric-label">Albums</div>
+        <div style="text-align:center; padding:12px 0;">
+          <div style="font-size:11px; font-weight:500; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-dim); margin-bottom:8px;">Music</div>
+          <div class="metric-val" style="font-size:28px;" id="libTracks">--</div>
+          <div style="font-size:11px; color:var(--text-secondary); margin-top:4px;" id="libMusicDetail">--</div>
         </div>
       </div>
-      <div style="display:flex; gap:16px; margin-top:12px; justify-content:center;">
-        <span class="chip" id="libMoviesSize">-- TB</span>
-        <span class="chip" id="libShowsSize">-- TB</span>
-        <span class="chip" id="libTotalSize">-- TB total</span>
+      <div style="display:flex; justify-content:center; margin-top:12px;">
+        <span class="chip" id="libTotalSize">-- TB total media</span>
       </div>
     </div>
 
@@ -1082,18 +1080,19 @@
       const libs = d.libraries;
       if (libs.movies) {
         document.getElementById('libMovies').textContent = libs.movies.count;
-        document.getElementById('libMoviesSize').textContent = (libs.movies.size_gb / 1024).toFixed(1) + ' TB movies';
+        document.getElementById('libMoviesSize').textContent = (libs.movies.size_gb / 1024).toFixed(1) + ' TB';
       }
       if (libs.shows) {
         document.getElementById('libShows').textContent = libs.shows.count;
-        document.getElementById('libEpisodes').textContent = libs.shows.episodes;
-        document.getElementById('libShowsSize').textContent = (libs.shows.size_gb / 1024).toFixed(1) + ' TB shows';
+        document.getElementById('libShowsEps').textContent = libs.shows.episodes + ' episodes';
+        document.getElementById('libShowsSize').textContent = (libs.shows.size_gb / 1024).toFixed(1) + ' TB';
       }
       if (libs.music) {
-        document.getElementById('libMusic').textContent = libs.music.child_count || libs.music.count;
+        document.getElementById('libTracks').textContent = libs.music.tracks;
+        document.getElementById('libMusicDetail').textContent = libs.music.artists + ' artists · ' + libs.music.albums + ' albums';
       }
       const totalGb = (libs.movies ? libs.movies.size_gb : 0) + (libs.shows ? libs.shows.size_gb : 0);
-      document.getElementById('libTotalSize').textContent = (totalGb / 1024).toFixed(1) + ' TB total';
+      document.getElementById('libTotalSize').textContent = (totalGb / 1024).toFixed(1) + ' TB total media';
     }
 
     // Streams
