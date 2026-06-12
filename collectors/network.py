@@ -7,7 +7,6 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 TIMEOUT = 8
 
 _session = None
-_csrf_token = None
 
 
 def collect():
@@ -67,30 +66,13 @@ def collect():
 
 
 def _ensure_session():
-    global _session, _csrf_token
+    global _session
 
     if _session:
-        test = _session.get(
-            f"{Config.UNIFI_URL}/proxy/network/api/s/{Config.UNIFI_SITE}/stat/health",
-            verify=False,
-            timeout=TIMEOUT,
-        )
-        if test.status_code != 401:
-            return
+        return
 
     _session = requests.Session()
-
-    r = _session.post(
-        f"{Config.UNIFI_URL}/api/auth/login",
-        json={"username": Config.UNIFI_USERNAME, "password": Config.UNIFI_PASSWORD},
-        verify=False,
-        timeout=TIMEOUT,
-    )
-    r.raise_for_status()
-
-    _csrf_token = r.headers.get("X-CSRF-Token")
-    if _csrf_token:
-        _session.headers.update({"X-CSRF-Token": _csrf_token})
+    _session.headers.update({"X-API-KEY": Config.UNIFI_API_KEY})
 
 
 def _get_health():
@@ -100,6 +82,9 @@ def _get_health():
             verify=False,
             timeout=TIMEOUT,
         )
+        if r.status_code == 401:
+            _reset_session()
+            return None
         r.raise_for_status()
         return r.json().get("data", [])
     except Exception:
@@ -113,10 +98,18 @@ def _get_clients():
             verify=False,
             timeout=TIMEOUT,
         )
+        if r.status_code == 401:
+            _reset_session()
+            return None
         r.raise_for_status()
         return r.json().get("data", [])
     except Exception:
         return None
+
+
+def _reset_session():
+    global _session
+    _session = None
 
 
 def _overall_health(wan):

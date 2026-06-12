@@ -20,8 +20,7 @@ class Config:
     HA_TOKEN = os.environ.get("HA_TOKEN", "")
 
     UNIFI_URL = os.environ.get("UNIFI_URL", "https://192.168.1.1")
-    UNIFI_USERNAME = os.environ.get("UNIFI_USERNAME", "")
-    UNIFI_PASSWORD = os.environ.get("UNIFI_PASSWORD", "")
+    UNIFI_API_KEY = os.environ.get("UNIFI_API_KEY", "")
     UNIFI_SITE = os.environ.get("UNIFI_SITE", "default")
 
     CACHE_TTL_SYSTEM = int(os.environ.get("CACHE_TTL_SYSTEM", "10"))
