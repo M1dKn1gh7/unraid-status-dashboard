@@ -857,8 +857,10 @@
     if (index === currentPanel) return;
 
     prev.classList.remove('active');
-    prev.classList.add(direction === 'left' ? 'exit-left' : '');
-    setTimeout(() => prev.classList.remove('exit-left'), 500);
+    if (direction === 'left') {
+      prev.classList.add('exit-left');
+      setTimeout(() => prev.classList.remove('exit-left'), 500);
+    }
 
     currentPanel = index;
     panels[currentPanel].classList.add('active');
