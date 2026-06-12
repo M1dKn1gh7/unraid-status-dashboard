@@ -20,7 +20,7 @@ A self-contained Docker container that displays real-time Unraid server status o
 │                                                              │
 │   Routes:                                                    │
 │     GET /           → serves dashboard.html                  │
-│     GET /api/system → Glances data (cached 10s)              │
+│     GET /api/system → Glances + Unraid data (cached 10s/30s)│
 │     GET /api/media  → Tautulli + qBit + Overseerr + Radarr  │
 │                       + Sonarr (cached 15s)                  │
 │     GET /api/ups    → HA REST API for NUT (cached 10s)       │
@@ -73,26 +73,40 @@ unraid-status-dashboard/
 │   ├── system.py           ← Glances REST API v4
 │   ├── media.py            ← Tautulli + qBittorrent + Overseerr + Radarr + Sonarr
 │   ├── ups.py              ← Home Assistant REST API (NUT entities)
-│   └── network.py          ← UniFi UDM SE API (API key auth)
+│   ├── network.py          ← UniFi UDM SE API (API key auth)
+│   └── unraid.py           ← Unraid GraphQL API (array, parity, Docker)
 └── static/
     └── dashboard.html      ← single-page frontend (HTML + CSS + JS, no build step)
 ```
 
 ## The Four Panels
 
-### 1. System (`collectors/system.py`)
-**Source:** Glances REST API at `:61208`
-- CPU % (circular SVG arc gauge)
-- RAM used/total with bar
-- Total storage summary (TB used / TB total, colour-coded bar)
-- Per-disk utilisation (Disk 1-5 + Cache NVMe, with bars)
-- Temperatures (NVMe SSD, CPU Tctl, CPU Edge — colour-coded chips)
-- Fans (RPM chips)
-- Disk I/O throughput (read/write MB/s)
+### 1. System (`collectors/system.py` + `collectors/unraid.py`)
+**Sources:** Glances REST API at `:61208` + Unraid GraphQL API
+
+**Visuals (bar-based layout, no circular gauges):**
+- Unraid card (hidden when unconfigured):
+  - Array status badge (Started/Stopped, green/amber/red)
+  - Disk count summary
+  - SMART status chips (shown only on issues)
+  - Parity check progress (when running): bar, speed, errors, ETA
+  - Docker containers: running/total chip, problem containers flagged
+- Utilisation card:
+  - CPU % bar with percentage label
+  - Memory bar with percentage + "X / Y GB" subtitle
+  - Load % bar (1-min load average / core count × 100)
+  - Temperature chips (colour-coded: >75°C red, >55°C amber)
+  - Disk I/O (read/write MB/s)
+- Storage card:
+  - Total storage (large "X TB" value + "of Y TB")
+  - Total storage bar (colour-coded)
+  - Per-disk list: name, bar, percentage, temp + SMART/spinning state from Unraid
 
 **Disk label mapping:** `/mnt/disk1` → "Disk 1", `/mnt/cache` → "Cache (NVMe)". Filters out `/mnt/user` and `/mnt/user0` virtual union mounts.
 
-**Temp label mapping:** "Composite" → "NVMe SSD", "Tctl" → "CPU (Tctl)", "edge" → "CPU (Edge)".
+**Temp label mapping:** "Composite" → "NVMe SSD", "Tctl" → "CPU (Tctl)", "edge" → "CPU (Edge)", "Package id 0" → "CPU Package", "Core N" → "CPU Core N".
+
+**Unraid GraphQL query:** Fetches array state + capacity, disk/parity/cache status, parity check progress, Docker containers (names, state, autoStart), disk SMART/temp/spinning, and system info (hostname, uptime, Unraid version).
 
 ### 2. Media (`collectors/media.py`)
 **Sources:** Tautulli `:8181`, qBittorrent `:8080` (via gluetun), Overseerr `:5055`, Radarr `:7878`, Sonarr `:8989`
@@ -133,15 +147,27 @@ Reads NUT integration entities:
 Endpoints:
 - `/proxy/network/api/s/{site}/stat/health` → WAN/LAN/WLAN subsystems
 - `/proxy/network/api/s/{site}/stat/sta` → all connected clients
+- `/proxy/network/api/s/{site}/stat/device` → gateway + AP hardware
 
 **Visuals:**
-- WAN status badge (Connected/Down)
-- WAN throughput (large Mbps numbers)
-- Utilisation bars (% of 900 Mbps capacity, colour-coded)
-- Client donut (wired vs wireless segments)
-- Top 5 clients by bandwidth (name, down/up Mbps)
+- WAN card:
+  - WAN status badge (Connected/Down) + WAN IP
+  - Download/Upload throughput with utilisation bars (% of WAN capacity)
+  - Latency chip, gateway uptime chip
+- Clients card:
+  - Total client count (large number)
+  - Wired/wireless breakdown chips
+  - Hardware section: UDM + AP CPU/mem/temp chips
+- Active Ports card (hidden if no data):
+  - Per-port: name, speed, rx/tx Mbps, connected client name
+- Top Clients card:
+  - Up to 5 clients sorted by bandwidth, with down/up Mbps
 
-**Notes:** UDM SE uses `/api/auth/login` for session auth, but we use API key (`X-API-KEY` header) to avoid MFA issues. Self-signed cert: `verify=False`.
+**Gateway parsing:** Extracts CPU%, mem%, uptime, WAN IP, port table (active ports with speed + throughput + connected client), and temperatures from device type `ugw`/`udm`.
+
+**AP parsing:** Extracts CPU%, mem%, uptime, per-radio stats (band, channel, clients, satisfaction) from device type `uap`.
+
+**Notes:** UDM SE uses API key (`X-API-KEY` header) to avoid MFA issues. Self-signed cert: `verify=False`.
 
 ## Design System
 
@@ -229,18 +255,6 @@ Apple-inspired dark OLED aesthetic. Pure black backgrounds for true OLED black. 
 .status-badge.critical { background: rgba(255,59,48,0.12); color: var(--red); }
 ```
 
-**Circular gauge (CPU):**
-- SVG circle with `stroke-dasharray` and `stroke-dashoffset` animation
-- Radius 42, circumference = 2π×42 = 263.9
-- Offset = circumference × (1 - percent/100)
-- Stroke colour from `stateColorVar(percent)`
-
-**Donut chart (clients):**
-- SVG circles with `stroke-dasharray` for segment lengths
-- Circumference = 2π×40 = 251.3
-- Wired segment: dasharray = `${wiredLen} ${circumference}`
-- Wireless: dasharray + dashoffset to start after wired segment
-
 **Battery (UPS):**
 - SVG rect with animated `height` and `y` attributes
 - Max fill height: 72px, fillY = 10 + (72 - fillHeight)
@@ -256,13 +270,12 @@ function stateColor(percent) {
 }
 ```
 
-Applied to: CPU gauge, RAM bar, disk bars, storage total bar, UPS load bar, WAN utilisation bars, temperature chips (>75°C red, >55°C amber, else green).
+Applied to: CPU bar, RAM bar, load bar, disk bars, storage total bar, UPS load bar, WAN utilisation bars, temperature chips (>75°C red, >55°C amber, else green).
 
 ### Transitions & Animation
 
 - **Panel transitions:** `opacity 0.5s ease, transform 0.5s ease` with `translateX(±40px)`
 - **Bar fills:** `width 1s ease, background-color 0.6s ease`
-- **Gauge strokes:** `stroke-dashoffset 1s ease, stroke 0.6s ease`
 - **Battery fill:** `height 1s ease, fill 0.6s ease`
 - **All transitions are CSS-only** — no JS animation libraries
 
@@ -308,10 +321,13 @@ All config via environment variables. See `.env.example` for full list.
 | `UNIFI_API_KEY` | — | Yes | UDM > Settings > Admins > API Keys |
 | `UNIFI_SITE` | `default` | No | UniFi site name |
 | `WAN_SPEED_MBPS` | `900` | No | Line speed for utilisation % calc |
+| `UNRAID_API_URL` | — | No | Unraid GraphQL endpoint (e.g. `https://192.168.1.200:9443/graphql`) |
+| `UNRAID_API_KEY` | — | No | Unraid API key (Connect plugin) |
 | `CACHE_TTL_SYSTEM` | `10` | No | Seconds |
 | `CACHE_TTL_MEDIA` | `15` | No | Seconds |
 | `CACHE_TTL_UPS` | `10` | No | Seconds |
 | `CACHE_TTL_NETWORK` | `30` | No | Seconds |
+| `CACHE_TTL_UNRAID` | `30` | No | Seconds |
 
 ## Deployment
 
@@ -380,6 +396,8 @@ Container joins `docker-media-network` (172.18.0.0/16). Can reach other containe
 - **Glances disk temps** — Glances may not report individual HDD temps. Only sensors it detects via `psutil`/`lm-sensors` appear. Current setup shows NVMe + CPU temps
 - **Tautulli bandwidth** — reported in kbps by the API, divided by 1000 for Mbps display
 - **HA entity names** — depend on NUT integration config. If renamed in HA, update the `ENTITIES` list in `collectors/ups.py`
+- **Unraid GraphQL** — requires the Unraid Connect plugin. If `UNRAID_API_URL` / `UNRAID_API_KEY` are not set, the Unraid card is hidden gracefully. Self-signed cert: `verify=False`
+- **Unraid disk matching** — Unraid disk names (e.g. "Disk 1") are matched to Glances mount labels via normalised lowercase alphanumeric comparison
 
 ## Styling Guide for Other Projects
 

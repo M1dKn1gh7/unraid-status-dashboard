@@ -87,7 +87,7 @@ def collect():
                 "is_wired": c.get("is_wired", False),
             })
 
-    gateway = _parse_gateway(devices, wired_clients_by_port)
+    gateway = _parse_gateway(devices, wired_clients_by_port, clients)
     ap = _parse_ap(devices)
 
     return {
@@ -106,9 +106,19 @@ def collect():
     }
 
 
-def _parse_gateway(devices, wired_clients_by_port):
+def _parse_gateway(devices, wired_clients_by_port, clients):
     if not devices:
         return None
+
+    device_by_port = _build_device_port_map(devices)
+    client_name_by_mac = {}
+    if clients:
+        for c in clients:
+            mac = c.get("mac")
+            if mac:
+                client_name_by_mac[mac] = (
+                    c.get("name") or c.get("hostname") or c.get("oui") or mac
+                )
 
     for d in devices:
         if d.get("type") in ("ugw", "udm"):
@@ -120,12 +130,20 @@ def _parse_gateway(devices, wired_clients_by_port):
 
             ports = []
             for p in d.get("port_table", []):
+                if _is_wan_port(p):
+                    continue
                 if not p.get("up"):
                     continue
                 port_idx = p.get("port_idx")
                 rx_mbps = round(p.get("rx_bytes-r", 0) * 8 / 1_000_000, 1)
                 tx_mbps = round(p.get("tx_bytes-r", 0) * 8 / 1_000_000, 1)
-                client_name = wired_clients_by_port.get(port_idx)
+
+                client_name = (
+                    wired_clients_by_port.get(port_idx)
+                    or device_by_port.get(port_idx)
+                    or _name_from_port_mac(p, client_name_by_mac)
+                )
+
                 ports.append({
                     "name": p.get("name", f"Port {port_idx}"),
                     "speed": p.get("speed", 0),
@@ -153,6 +171,32 @@ def _parse_gateway(devices, wired_clients_by_port):
                 "ports": ports,
             }
 
+    return None
+
+
+def _is_wan_port(port_entry):
+    conf_id = (port_entry.get("port_conf_id") or "").upper()
+    name = (port_entry.get("name") or "").upper()
+    return "WAN" in conf_id or "WAN" in name
+
+
+def _build_device_port_map(devices):
+    port_map = {}
+    for d in devices:
+        if d.get("type") in ("ugw", "udm"):
+            continue
+        uplink = d.get("uplink", {})
+        remote_port = uplink.get("uplink_remote_port")
+        if remote_port is not None:
+            device_name = d.get("name") or d.get("model") or d.get("mac", "")
+            port_map[remote_port] = device_name
+    return port_map
+
+
+def _name_from_port_mac(port_entry, client_name_by_mac):
+    mac = port_entry.get("port_peer_mac")
+    if mac and mac in client_name_by_mac:
+        return client_name_by_mac[mac]
     return None
 
 
