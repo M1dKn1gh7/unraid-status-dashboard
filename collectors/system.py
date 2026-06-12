@@ -3,6 +3,28 @@ from config import Config
 
 TIMEOUT = 5
 
+DISK_LABELS = {
+    "/mnt/disk1": "Disk 1",
+    "/mnt/disk2": "Disk 2",
+    "/mnt/disk3": "Disk 3",
+    "/mnt/disk4": "Disk 4",
+    "/mnt/disk5": "Disk 5",
+    "/mnt/cache": "Cache (NVMe)",
+}
+
+SKIP_MOUNTS = {"/mnt/user", "/mnt/user0"}
+
+TEMP_LABELS = {
+    "Composite": "NVMe SSD",
+    "Tctl": "CPU (Tctl)",
+    "edge": "CPU (Edge)",
+    "Package id 0": "CPU Package",
+    "Core 0": "CPU Core 0",
+    "Core 1": "CPU Core 1",
+    "Core 2": "CPU Core 2",
+    "Core 3": "CPU Core 3",
+}
+
 
 def collect():
     base = Config.GLANCES_URL
@@ -28,14 +50,19 @@ def collect():
     disks = []
     if fs:
         for d in fs:
-            if d.get("mnt_point", "").startswith("/mnt"):
-                disks.append({
-                    "name": d.get("device_name", "").split("/")[-1],
-                    "mount": d.get("mnt_point"),
-                    "used_gb": round(d.get("used", 0) / (1024**3), 1),
-                    "total_gb": round(d.get("size", 1) / (1024**3), 1),
-                    "percent": d.get("percent", 0),
-                })
+            mount = d.get("mnt_point", "")
+            if mount in SKIP_MOUNTS:
+                continue
+            if not mount.startswith("/mnt"):
+                continue
+            label = DISK_LABELS.get(mount, mount.split("/")[-1])
+            disks.append({
+                "name": label,
+                "mount": mount,
+                "used_gb": round(d.get("used", 0) / (1024**3), 1),
+                "total_gb": round(d.get("size", 1) / (1024**3), 1),
+                "percent": d.get("percent", 0),
+            })
 
     disk_io = None
     if diskio:
@@ -51,15 +78,17 @@ def collect():
     if sensors:
         for s in sensors:
             sensor_type = s.get("type", "")
-            if sensor_type == "temperature_core":
+            label = s.get("label", "Unknown")
+            if "temperature" in sensor_type:
+                display_label = TEMP_LABELS.get(label, label)
                 temperatures.append({
-                    "label": s.get("label", "Unknown"),
+                    "label": display_label,
                     "value": s.get("value", 0),
                     "unit": "C",
                 })
-            elif sensor_type == "fan_speed":
+            elif "fan" in sensor_type:
                 fans.append({
-                    "label": s.get("label", "Unknown"),
+                    "label": label,
                     "rpm": s.get("value", 0),
                 })
 
