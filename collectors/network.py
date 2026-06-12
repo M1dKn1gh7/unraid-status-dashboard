@@ -14,6 +14,7 @@ def collect():
 
     health = _get_health()
     clients = _get_clients()
+    devices = _get_devices()
 
     wan = None
     wlan = None
@@ -78,6 +79,8 @@ def collect():
                 "total_mbps": round(total_bw * 8 / 1_000_000, 2),
             })
 
+    gateway = _parse_gateway(devices)
+
     return {
         "wan": wan,
         "clients": {
@@ -88,8 +91,42 @@ def collect():
         "top_clients": top_clients,
         "wlan_status": wlan,
         "lan_status": lan,
-        "health": _overall_health(wan),
+        "gateway": gateway,
+        "health": _overall_health(wan, wlan, lan),
     }
+
+
+def _parse_gateway(devices):
+    if not devices:
+        return None
+
+    for d in devices:
+        if d.get("type") == "ugw" or d.get("type") == "udm":
+            sys_stats = d.get("system-stats", {})
+            wan1 = d.get("wan1", {})
+            uptime_s = d.get("uptime")
+            uptime_days = round(uptime_s / 86400, 1) if uptime_s else None
+
+            return {
+                "name": d.get("name", "UDM"),
+                "model": d.get("model", ""),
+                "cpu_pct": _safe_float(sys_stats.get("cpu")),
+                "mem_pct": _safe_float(sys_stats.get("mem")),
+                "uptime_days": uptime_days,
+                "wan_ip": wan1.get("ip") if wan1 else None,
+                "satisfaction": d.get("satisfaction"),
+            }
+
+    return None
+
+
+def _safe_float(val):
+    if val is None:
+        return None
+    try:
+        return round(float(val), 1)
+    except (ValueError, TypeError):
+        return None
 
 
 def _ensure_session():
@@ -134,14 +171,34 @@ def _get_clients():
         return None
 
 
+def _get_devices():
+    try:
+        r = _session.get(
+            f"{Config.UNIFI_URL}/proxy/network/api/s/{Config.UNIFI_SITE}/stat/device",
+            verify=False,
+            timeout=TIMEOUT,
+        )
+        if r.status_code == 401:
+            _reset_session()
+            return None
+        r.raise_for_status()
+        return r.json().get("data", [])
+    except Exception:
+        return None
+
+
 def _reset_session():
     global _session
     _session = None
 
 
-def _overall_health(wan):
+def _overall_health(wan, wlan, lan):
     if not wan:
         return "unknown"
-    if wan["status"] == "connected":
-        return "good"
-    return "critical"
+    if wan["status"] != "connected":
+        return "critical"
+    if wlan and wlan.get("status") != "ok":
+        return "warning"
+    if lan and lan.get("status") != "ok":
+        return "warning"
+    return "good"

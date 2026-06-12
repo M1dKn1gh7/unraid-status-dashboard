@@ -810,75 +810,64 @@
         <span style="color: var(--blue);">&#8801;</span>
       </div>
       <div class="panel-title">Network</div>
-      <div class="panel-subtitle">UniFi UDM SE</div>
+      <div class="panel-subtitle" id="netSubtitle">UniFi UDM SE</div>
     </div>
 
     <div class="card">
-      <div class="row" style="justify-content:space-between; margin-bottom:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
         <div id="wanBadge" class="status-badge good">
-          <span class="status-badge-dot"></span>
+          <span class="chip-dot" style="background:currentColor; margin-right:6px;"></span>
           <span id="wanStatus">--</span>
         </div>
-        <span style="font-size:12px; color:var(--text-dim); font-variant-numeric:tabular-nums;" id="wanLatency">-- ms</span>
+        <span style="font-size:11px; color:var(--text-dim); font-variant-numeric:tabular-nums;" id="wanIp">--</span>
       </div>
-      <div class="metric-row" style="margin-bottom:16px;">
-        <div class="metric">
-          <div class="metric-val" id="wanDown">--</div>
-          <div class="metric-unit">Mbps</div>
-          <div class="metric-label">Down</div>
+      <div class="card-label" style="margin-bottom:6px;">Throughput</div>
+      <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
+        <div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
+            <span style="font-size:11px; color:var(--text-secondary);">Download</span>
+            <span style="font-size:12px; font-weight:500; font-variant-numeric:tabular-nums; color:var(--text-primary);" id="wanDown">-- Mbps</span>
+          </div>
+          <div class="bar-track" style="height:6px;">
+            <div class="bar-fill green" id="wanDownBar" style="width:0%"></div>
+          </div>
         </div>
-        <div class="metric">
-          <div class="metric-val" id="wanUp">--</div>
-          <div class="metric-unit">Mbps</div>
-          <div class="metric-label">Up</div>
+        <div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
+            <span style="font-size:11px; color:var(--text-secondary);">Upload</span>
+            <span style="font-size:12px; font-weight:500; font-variant-numeric:tabular-nums; color:var(--text-primary);" id="wanUp">-- Mbps</span>
+          </div>
+          <div class="bar-track" style="height:6px;">
+            <div class="bar-fill green" id="wanUpBar" style="width:0%"></div>
+          </div>
         </div>
       </div>
-      <div class="card-label">Utilisation (900 Mbps)</div>
-      <div style="display:flex; gap:12px; align-items:center; margin-bottom:8px;">
-        <span style="font-size:11px; color:var(--text-dim); width:28px;">DL</span>
-        <div class="bar-track flex-1" style="height:8px;">
-          <div class="bar-fill green" id="wanDownBar" style="width:0%"></div>
-        </div>
-        <span style="font-size:11px; color:var(--text-secondary); width:40px; text-align:right; font-variant-numeric:tabular-nums;" id="wanDownPct">--%</span>
-      </div>
-      <div style="display:flex; gap:12px; align-items:center;">
-        <span style="font-size:11px; color:var(--text-dim); width:28px;">UL</span>
-        <div class="bar-track flex-1" style="height:8px;">
-          <div class="bar-fill green" id="wanUpBar" style="width:0%"></div>
-        </div>
-        <span style="font-size:11px; color:var(--text-secondary); width:40px; text-align:right; font-variant-numeric:tabular-nums;" id="wanUpPct">--%</span>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <span class="chip" id="wanLatencyChip" style="display:none;"></span>
+        <span class="chip" id="gatewayUptimeChip" style="display:none;"></span>
       </div>
     </div>
 
     <div class="card">
-      <div class="card-label">Connected Clients</div>
-      <div class="row" style="justify-content:center; gap:32px;">
-        <div class="donut-wrap">
-          <svg class="donut-svg" viewBox="0 0 100 100">
-            <circle class="donut-bg" cx="50" cy="50" r="40"/>
-            <circle class="donut-wired" id="donutWired" cx="50" cy="50" r="40"
-              stroke-dasharray="0 251.3" stroke-dashoffset="0"/>
-            <circle class="donut-wireless" id="donutWireless" cx="50" cy="50" r="40"
-              stroke-dasharray="0 251.3" stroke-dashoffset="0"/>
-          </svg>
-          <span class="donut-text" id="clientTotal">--</span>
-          <span class="donut-label">Devices</span>
+      <div class="card-label" style="margin-bottom:8px;">Clients</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <span style="font-size:28px; font-weight:200; font-variant-numeric:tabular-nums;" id="clientTotal">--</span>
+        <div style="display:flex; gap:8px;">
+          <span class="chip"><span class="chip-dot" style="background:var(--blue);"></span><span id="clientWired">--</span> wired</span>
+          <span class="chip"><span class="chip-dot" style="background:var(--green);"></span><span id="clientWireless">--</span> wifi</span>
         </div>
-        <div class="col" style="gap:8px;">
-          <div class="chip">
-            <span class="chip-dot" style="background:var(--blue);"></span>
-            Wired: <span id="clientWired">--</span>
-          </div>
-          <div class="chip">
-            <span class="chip-dot" style="background:var(--green);"></span>
-            Wireless: <span id="clientWireless">--</span>
-          </div>
+      </div>
+      <div id="gatewaySection" style="display:none;">
+        <div class="card-label" style="margin-bottom:6px;">Gateway</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <span class="chip" id="gwCpuChip">CPU: --%</span>
+          <span class="chip" id="gwMemChip">Mem: --%</span>
         </div>
       </div>
     </div>
 
     <div class="card">
-      <div class="card-label">Top Clients (Bandwidth)</div>
+      <div class="card-label">Active Clients</div>
       <div class="stream-list" id="topClientsList">
         <div class="empty">Loading...</div>
       </div>
@@ -1338,52 +1327,69 @@
   function updateNetwork(d) {
     if (!d || d._error) return;
 
-    // WAN badge
+    // WAN status
     const wanBadge = document.getElementById('wanBadge');
     if (d.wan) {
       const isUp = d.wan.status === 'connected';
       wanBadge.className = 'status-badge ' + (isUp ? 'good' : 'critical');
-      document.getElementById('wanStatus').textContent = isUp ? 'Connected' : 'Down';
-      document.getElementById('wanLatency').textContent = d.wan.latency_ms != null ? d.wan.latency_ms + ' ms' : '-- ms';
-      document.getElementById('wanDown').textContent = d.wan.down_mbps || '--';
-      document.getElementById('wanUp').textContent = d.wan.up_mbps || '--';
+      document.getElementById('wanStatus').textContent = isUp ? 'WAN Connected' : 'WAN Down';
+      document.getElementById('wanDown').textContent = d.wan.down_mbps + ' Mbps';
+      document.getElementById('wanUp').textContent = d.wan.up_mbps + ' Mbps';
 
-      // Utilisation bars
       const downPct = d.wan.utilisation_down_pct || 0;
       const upPct = d.wan.utilisation_up_pct || 0;
       const downBar = document.getElementById('wanDownBar');
       downBar.style.width = Math.min(downPct, 100) + '%';
       downBar.className = 'bar-fill ' + stateColor(downPct);
-      document.getElementById('wanDownPct').textContent = downPct.toFixed(1) + '%';
-
       const upBar = document.getElementById('wanUpBar');
       upBar.style.width = Math.min(upPct, 100) + '%';
       upBar.className = 'bar-fill ' + stateColor(upPct);
-      document.getElementById('wanUpPct').textContent = upPct.toFixed(1) + '%';
+
+      const latChip = document.getElementById('wanLatencyChip');
+      if (d.wan.latency_ms != null) {
+        latChip.style.display = '';
+        latChip.innerHTML = '<span class="chip-dot" style="background:var(--green)"></span>' + d.wan.latency_ms + ' ms latency';
+      } else {
+        latChip.style.display = 'none';
+      }
     }
 
-    // Clients donut
-    if (d.clients) {
-      const total = d.clients.total || 0;
-      const wired = d.clients.wired || 0;
-      const wireless = d.clients.wireless || 0;
-      const circumference = 2 * Math.PI * 40;
+    // Gateway info
+    if (d.gateway) {
+      const sub = document.getElementById('netSubtitle');
+      sub.textContent = d.gateway.name || 'UniFi UDM SE';
 
-      document.getElementById('clientTotal').textContent = total;
-      document.getElementById('clientWired').textContent = wired;
-      document.getElementById('clientWireless').textContent = wireless;
-
-      if (total > 0) {
-        const wiredLen = (wired / total) * circumference;
-        const wirelessLen = (wireless / total) * circumference;
-
-        const donutWired = document.getElementById('donutWired');
-        donutWired.style.strokeDasharray = `${wiredLen} ${circumference}`;
-
-        const donutWireless = document.getElementById('donutWireless');
-        donutWireless.style.strokeDasharray = `${wirelessLen} ${circumference}`;
-        donutWireless.style.strokeDashoffset = `-${wiredLen}`;
+      if (d.gateway.wan_ip) {
+        document.getElementById('wanIp').textContent = d.gateway.wan_ip;
       }
+
+      const uptimeChip = document.getElementById('gatewayUptimeChip');
+      if (d.gateway.uptime_days != null) {
+        uptimeChip.style.display = '';
+        uptimeChip.innerHTML = '<span class="chip-dot" style="background:var(--blue)"></span>' + d.gateway.uptime_days + 'd uptime';
+      }
+
+      const gwSection = document.getElementById('gatewaySection');
+      if (d.gateway.cpu_pct != null || d.gateway.mem_pct != null) {
+        gwSection.style.display = '';
+        const cpuChip = document.getElementById('gwCpuChip');
+        const memChip = document.getElementById('gwMemChip');
+        if (d.gateway.cpu_pct != null) {
+          const cpuColor = d.gateway.cpu_pct >= 80 ? 'var(--red)' : d.gateway.cpu_pct >= 50 ? 'var(--amber)' : 'var(--green)';
+          cpuChip.innerHTML = `<span class="chip-dot" style="background:${cpuColor}"></span>CPU: ${d.gateway.cpu_pct}%`;
+        }
+        if (d.gateway.mem_pct != null) {
+          const memColor = d.gateway.mem_pct >= 80 ? 'var(--red)' : d.gateway.mem_pct >= 50 ? 'var(--amber)' : 'var(--green)';
+          memChip.innerHTML = `<span class="chip-dot" style="background:${memColor}"></span>Mem: ${d.gateway.mem_pct}%`;
+        }
+      }
+    }
+
+    // Clients
+    if (d.clients) {
+      document.getElementById('clientTotal').textContent = d.clients.total || 0;
+      document.getElementById('clientWired').textContent = d.clients.wired || 0;
+      document.getElementById('clientWireless').textContent = d.clients.wireless || 0;
     }
 
     // Top clients
@@ -1392,7 +1398,7 @@
       topList.innerHTML = d.top_clients.map(c => `
         <div class="stream-item">
           <div class="stream-top">
-            <span class="stream-user">${c.name}</span>
+            <span class="stream-user">${c.name || '(unnamed)'}</span>
             <span style="font-size:11px; color:var(--text-secondary); font-variant-numeric:tabular-nums;">${c.total_mbps} Mbps</span>
           </div>
           <div style="display:flex; gap:12px; font-size:11px; color:var(--text-dim);">
