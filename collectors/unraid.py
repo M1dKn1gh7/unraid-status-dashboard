@@ -11,18 +11,11 @@ query UnraidStatus {
   array {
     state
     capacity { kilobytes { free used total } }
-    disks { name device status type size temp serial }
-  }
-  parity {
-    status
-    progress
-    speed
-    errors
-    elapsed
-    eta
+    disks { name device status type size temp }
+    parityCheckStatus { status progress speed errors duration running paused }
   }
   docker {
-    containers { name state status image autoStart }
+    containers { names state status image autoStart }
   }
 }
 """
@@ -36,9 +29,10 @@ def collect():
     if not data:
         return _empty_response()
 
+    array_data = data.get("array")
     return {
-        "array": _parse_array(data.get("array")),
-        "parity": _parse_parity(data.get("parity")),
+        "array": _parse_array(array_data),
+        "parity": _parse_parity(array_data.get("parityCheckStatus") if array_data else None),
         "docker": _parse_docker(data.get("docker")),
     }
 
@@ -49,7 +43,7 @@ def _query_graphql(query):
             Config.UNRAID_API_URL,
             json={"query": query},
             headers={
-                "Authorization": f"Bearer {Config.UNRAID_API_KEY}",
+                "x-api-key": Config.UNRAID_API_KEY,
                 "Content-Type": "application/json",
             },
             timeout=TIMEOUT,
@@ -85,7 +79,6 @@ def _parse_array(array_data):
             "type": d.get("type", ""),
             "size_bytes": d.get("size", 0),
             "temp_c": d.get("temp"),
-            "serial": d.get("serial", ""),
         })
 
     return {
@@ -93,8 +86,8 @@ def _parse_array(array_data):
         "started": state.upper() == "STARTED",
         "healthy": problems == 0 and state.upper() == "STARTED",
         "problem_count": problems,
-        "capacity_tb_used": round(capacity.get("used", 0) / (1024 ** 2), 2),
-        "capacity_tb_total": round(capacity.get("total", 0) / (1024 ** 2), 2),
+        "capacity_tb_used": round(int(capacity.get("used", 0)) / (1024 ** 2), 2),
+        "capacity_tb_total": round(int(capacity.get("total", 0)) / (1024 ** 2), 2),
         "disk_count": len(disks_raw),
         "disks": disks,
     }
@@ -104,17 +97,23 @@ def _parse_parity(parity_data):
     if not parity_data:
         return None
 
-    status = parity_data.get("status", "IDLE")
-    running = status.upper() in ("RUNNING", "IN_PROGRESS", "CHECKING")
+    running = parity_data.get("running", False)
+    speed_raw = parity_data.get("speed")
+    speed_mb = None
+    if speed_raw:
+        try:
+            speed_mb = round(int(speed_raw) / (1024 * 1024), 1)
+        except (ValueError, TypeError):
+            speed_mb = speed_raw
 
     return {
         "running": running,
-        "status": status,
+        "status": parity_data.get("status", "IDLE"),
         "progress": parity_data.get("progress", 0),
-        "speed": parity_data.get("speed"),
+        "speed": f"{speed_mb} MB/s" if speed_mb else None,
         "errors": parity_data.get("errors", 0),
-        "elapsed": parity_data.get("elapsed"),
-        "eta": parity_data.get("eta"),
+        "duration": parity_data.get("duration"),
+        "paused": parity_data.get("paused", False),
     }
 
 
@@ -129,10 +128,12 @@ def _parse_docker(docker_data):
 
     for c in containers:
         state = (c.get("state") or "").lower()
+        names = c.get("names", [])
+        name = names[0].lstrip("/") if names else "unknown"
         if state == "running":
             running += 1
         elif c.get("autoStart") and state != "running":
-            problems.append(c.get("name", "unknown"))
+            problems.append(name)
 
     return {
         "running": running,
