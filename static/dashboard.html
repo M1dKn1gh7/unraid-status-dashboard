@@ -1113,6 +1113,14 @@
     updateUnraid(d.unraid);
   }
 
+  function friendlyDiskName(name) {
+    const m = (name || '').match(/^disk(\d+)$/i);
+    if (m) return 'Disk ' + m[1];
+    if (name === 'cache') return 'Cache';
+    if (name === 'parity') return 'Parity';
+    return name;
+  }
+
   function matchDiskName(unraidName, glancesLabel) {
     const a = (unraidName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
     const b = glancesLabel.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -1144,14 +1152,11 @@
 
     if (u.system) {
       const sub = document.getElementById('sysSubtitle');
-      let subtitle = u.system.hostname || 'Unraid';
-      if (u.system.uptime_days !== null) {
-        subtitle += ' · Up ' + u.system.uptime_days + 'd';
-      }
-      if (u.system.version) {
-        subtitle += ' · v' + u.system.version;
-      }
-      sub.textContent = subtitle;
+      const parts = [];
+      if (u.system.hostname) parts.push(u.system.hostname);
+      if (u.system.version) parts.push('Unraid ' + u.system.version);
+      if (u.system.uptime_days !== null) parts.push(u.system.uptime_days + 'd uptime');
+      sub.textContent = parts.join(' · ');
     }
 
     if (u.array) {
@@ -1170,7 +1175,7 @@
         health = u.array.problem_count > 0 ? 'critical' : 'warning';
         text = issues.join(', ');
       } else {
-        text = 'All ' + totalDisks + ' disks healthy';
+        text = 'Array healthy';
       }
 
       badge.className = 'status-badge ' + health;
@@ -1184,9 +1189,9 @@
       const disksWithTemps = u.array.disks.filter(d => d.temp_c !== null);
       if (disksWithTemps.length > 0) {
         smartSection.style.display = '';
-        smartChips.innerHTML = u.array.disks.filter(d => d.temp_c !== null).map(d => {
+        smartChips.innerHTML = disksWithTemps.map(d => {
           const c = d.temp_c > 55 ? 'var(--red)' : d.temp_c > 45 ? 'var(--amber)' : 'var(--green)';
-          const label = d.type === 'PARITY' ? 'Parity' : d.type === 'CACHE' ? 'Cache' : d.name;
+          const label = d.type === 'PARITY' ? 'Parity' : d.type === 'CACHE' ? 'Cache' : friendlyDiskName(d.name);
           return `<div class="chip"><span class="chip-dot" style="background:${c}"></span>${label}: ${d.temp_c}°C</div>`;
         }).join('');
       } else {
