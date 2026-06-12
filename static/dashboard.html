@@ -611,6 +611,33 @@
     </div>
 
     <div class="card">
+      <div class="card-label">Library</div>
+      <div class="metric-row">
+        <div class="metric">
+          <div class="metric-val" style="font-size:28px;" id="libMovies">--</div>
+          <div class="metric-label">Movies</div>
+        </div>
+        <div class="metric">
+          <div class="metric-val" style="font-size:28px;" id="libShows">--</div>
+          <div class="metric-label">Shows</div>
+        </div>
+        <div class="metric">
+          <div class="metric-val" style="font-size:28px;" id="libEpisodes">--</div>
+          <div class="metric-label">Episodes</div>
+        </div>
+        <div class="metric">
+          <div class="metric-val" style="font-size:28px;" id="libMusic">--</div>
+          <div class="metric-label">Artists</div>
+        </div>
+      </div>
+      <div style="display:flex; gap:16px; margin-top:12px; justify-content:center;">
+        <span class="chip" id="libMoviesSize">-- TB</span>
+        <span class="chip" id="libShowsSize">-- TB</span>
+        <span class="chip" id="libTotalSize">-- TB total</span>
+      </div>
+    </div>
+
+    <div class="card">
       <div class="card-label">Active Streams</div>
       <div class="stream-list" id="streamList">
         <div class="empty">No active streams</div>
@@ -729,7 +756,7 @@
         </div>
         <span style="font-size:12px; color:var(--text-dim); font-variant-numeric:tabular-nums;" id="wanLatency">-- ms</span>
       </div>
-      <div class="metric-row">
+      <div class="metric-row" style="margin-bottom:16px;">
         <div class="metric">
           <div class="metric-val" id="wanDown">--</div>
           <div class="metric-unit">Mbps</div>
@@ -740,6 +767,21 @@
           <div class="metric-unit">Mbps</div>
           <div class="metric-label">Up</div>
         </div>
+      </div>
+      <div class="card-label">Utilisation (900 Mbps)</div>
+      <div style="display:flex; gap:12px; align-items:center; margin-bottom:8px;">
+        <span style="font-size:11px; color:var(--text-dim); width:28px;">DL</span>
+        <div class="bar-track flex-1" style="height:8px;">
+          <div class="bar-fill green" id="wanDownBar" style="width:0%"></div>
+        </div>
+        <span style="font-size:11px; color:var(--text-secondary); width:40px; text-align:right; font-variant-numeric:tabular-nums;" id="wanDownPct">--%</span>
+      </div>
+      <div style="display:flex; gap:12px; align-items:center;">
+        <span style="font-size:11px; color:var(--text-dim); width:28px;">UL</span>
+        <div class="bar-track flex-1" style="height:8px;">
+          <div class="bar-fill green" id="wanUpBar" style="width:0%"></div>
+        </div>
+        <span style="font-size:11px; color:var(--text-secondary); width:40px; text-align:right; font-variant-numeric:tabular-nums;" id="wanUpPct">--%</span>
       </div>
     </div>
 
@@ -767,6 +809,13 @@
             Wireless: <span id="clientWireless">--</span>
           </div>
         </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Top Clients (Bandwidth)</div>
+      <div class="stream-list" id="topClientsList">
+        <div class="empty">Loading...</div>
       </div>
     </div>
   </div>
@@ -965,6 +1014,25 @@
   function updateMedia(d) {
     if (!d || d._error) return;
 
+    // Libraries
+    if (d.libraries) {
+      const libs = d.libraries;
+      if (libs.movies) {
+        document.getElementById('libMovies').textContent = libs.movies.count;
+        document.getElementById('libMoviesSize').textContent = (libs.movies.size_gb / 1024).toFixed(1) + ' TB movies';
+      }
+      if (libs.shows) {
+        document.getElementById('libShows').textContent = libs.shows.count;
+        document.getElementById('libEpisodes').textContent = libs.shows.episodes;
+        document.getElementById('libShowsSize').textContent = (libs.shows.size_gb / 1024).toFixed(1) + ' TB shows';
+      }
+      if (libs.music) {
+        document.getElementById('libMusic').textContent = libs.music.count;
+      }
+      const totalGb = (libs.movies ? libs.movies.size_gb : 0) + (libs.shows ? libs.shows.size_gb : 0);
+      document.getElementById('libTotalSize').textContent = (totalGb / 1024).toFixed(1) + ' TB total';
+    }
+
     // Streams
     const streamList = document.getElementById('streamList');
     if (d.streams && d.streams.count > 0) {
@@ -1058,6 +1126,19 @@
       document.getElementById('wanLatency').textContent = d.wan.latency_ms != null ? d.wan.latency_ms + ' ms' : '-- ms';
       document.getElementById('wanDown').textContent = d.wan.down_mbps || '--';
       document.getElementById('wanUp').textContent = d.wan.up_mbps || '--';
+
+      // Utilisation bars
+      const downPct = d.wan.utilisation_down_pct || 0;
+      const upPct = d.wan.utilisation_up_pct || 0;
+      const downBar = document.getElementById('wanDownBar');
+      downBar.style.width = Math.min(downPct, 100) + '%';
+      downBar.className = 'bar-fill ' + stateColor(downPct);
+      document.getElementById('wanDownPct').textContent = downPct.toFixed(1) + '%';
+
+      const upBar = document.getElementById('wanUpBar');
+      upBar.style.width = Math.min(upPct, 100) + '%';
+      upBar.className = 'bar-fill ' + stateColor(upPct);
+      document.getElementById('wanUpPct').textContent = upPct.toFixed(1) + '%';
     }
 
     // Clients donut
@@ -1082,6 +1163,25 @@
         donutWireless.style.strokeDasharray = `${wirelessLen} ${circumference}`;
         donutWireless.style.strokeDashoffset = `-${wiredLen}`;
       }
+    }
+
+    // Top clients
+    const topList = document.getElementById('topClientsList');
+    if (d.top_clients && d.top_clients.length > 0) {
+      topList.innerHTML = d.top_clients.map(c => `
+        <div class="stream-item">
+          <div class="stream-top">
+            <span class="stream-user">${c.name}</span>
+            <span style="font-size:11px; color:var(--text-secondary); font-variant-numeric:tabular-nums;">${c.total_mbps} Mbps</span>
+          </div>
+          <div style="display:flex; gap:12px; font-size:11px; color:var(--text-dim);">
+            <span>&#8595; ${c.down_mbps}</span>
+            <span>&#8593; ${c.up_mbps}</span>
+          </div>
+        </div>
+      `).join('');
+    } else {
+      topList.innerHTML = '<div class="empty">No significant traffic</div>';
     }
   }
 

@@ -16,12 +16,19 @@ class Config:
     OVERSEERR_URL = os.environ.get("OVERSEERR_URL", "http://192.168.1.200:5055")
     OVERSEERR_API_KEY = os.environ.get("OVERSEERR_API_KEY", "")
 
+    RADARR_URL = os.environ.get("RADARR_URL", "http://192.168.1.200:7878")
+    RADARR_API_KEY = os.environ.get("RADARR_API_KEY", "")
+
+    SONARR_URL = os.environ.get("SONARR_URL", "http://192.168.1.200:8989")
+    SONARR_API_KEY = os.environ.get("SONARR_API_KEY", "")
+
     HA_URL = os.environ.get("HA_URL", "http://192.168.1.200:8123")
     HA_TOKEN = os.environ.get("HA_TOKEN", "")
 
     UNIFI_URL = os.environ.get("UNIFI_URL", "https://192.168.1.1")
     UNIFI_API_KEY = os.environ.get("UNIFI_API_KEY", "")
     UNIFI_SITE = os.environ.get("UNIFI_SITE", "default")
+    WAN_SPEED_MBPS = int(os.environ.get("WAN_SPEED_MBPS", "900"))
 
     CACHE_TTL_SYSTEM = int(os.environ.get("CACHE_TTL_SYSTEM", "10"))
     CACHE_TTL_MEDIA = int(os.environ.get("CACHE_TTL_MEDIA", "15"))

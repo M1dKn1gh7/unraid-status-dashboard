@@ -23,12 +23,17 @@ def collect():
         for subsystem in health:
             name = subsystem.get("subsystem", "")
             if name == "wan":
+                down_mbps = round(subsystem.get("rx_bytes-r", 0) * 8 / 1_000_000, 1)
+                up_mbps = round(subsystem.get("tx_bytes-r", 0) * 8 / 1_000_000, 1)
                 wan = {
                     "status": "connected" if subsystem.get("status") == "ok" else "down",
-                    "down_mbps": round(subsystem.get("rx_bytes-r", 0) * 8 / 1_000_000, 1),
-                    "up_mbps": round(subsystem.get("tx_bytes-r", 0) * 8 / 1_000_000, 1),
+                    "down_mbps": down_mbps,
+                    "up_mbps": up_mbps,
                     "latency_ms": subsystem.get("latency"),
                     "uptime_s": subsystem.get("uptime"),
+                    "capacity_mbps": Config.WAN_SPEED_MBPS,
+                    "utilisation_down_pct": round(down_mbps / Config.WAN_SPEED_MBPS * 100, 1) if Config.WAN_SPEED_MBPS else 0,
+                    "utilisation_up_pct": round(up_mbps / Config.WAN_SPEED_MBPS * 100, 1) if Config.WAN_SPEED_MBPS else 0,
                 }
             elif name == "wlan":
                 wlan = {
@@ -44,6 +49,7 @@ def collect():
     total_clients = 0
     wired = 0
     wireless = 0
+    top_clients = []
     if clients:
         total_clients = len(clients)
         for c in clients:
@@ -52,6 +58,26 @@ def collect():
             else:
                 wireless += 1
 
+        sorted_by_bw = sorted(
+            clients,
+            key=lambda c: (c.get("rx_bytes-r", 0) + c.get("tx_bytes-r", 0)),
+            reverse=True,
+        )
+
+        for c in sorted_by_bw[:5]:
+            rx = c.get("rx_bytes-r", 0)
+            tx = c.get("tx_bytes-r", 0)
+            total_bw = rx + tx
+            if total_bw < 1000:
+                continue
+            name = c.get("name") or c.get("hostname") or c.get("oui", c.get("mac", "Unknown"))
+            top_clients.append({
+                "name": name,
+                "down_mbps": round(rx * 8 / 1_000_000, 2),
+                "up_mbps": round(tx * 8 / 1_000_000, 2),
+                "total_mbps": round(total_bw * 8 / 1_000_000, 2),
+            })
+
     return {
         "wan": wan,
         "clients": {
@@ -59,6 +85,7 @@ def collect():
             "wired": wired,
             "wireless": wireless,
         },
+        "top_clients": top_clients,
         "wlan_status": wlan,
         "lan_status": lan,
         "health": _overall_health(wan),

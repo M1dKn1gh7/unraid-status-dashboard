@@ -8,11 +8,13 @@ def collect():
     streams = _fetch_tautulli()
     downloads = _fetch_qbittorrent()
     requests_pending = _fetch_overseerr()
+    libraries = _fetch_libraries()
 
     return {
         "streams": streams,
         "downloads": downloads,
         "requests_pending": requests_pending,
+        "libraries": libraries,
     }
 
 
@@ -102,6 +104,86 @@ def _fetch_overseerr():
         r.raise_for_status()
         data = r.json()
         return data.get("pageInfo", {}).get("results", 0)
+    except Exception:
+        return None
+
+
+def _fetch_libraries():
+    movies = _fetch_radarr()
+    shows = _fetch_sonarr()
+    tautulli_libs = _fetch_tautulli_libraries()
+
+    return {
+        "movies": movies,
+        "shows": shows,
+        "music": tautulli_libs.get("music") if tautulli_libs else None,
+    }
+
+
+def _fetch_radarr():
+    if not Config.RADARR_API_KEY:
+        return None
+    try:
+        r = requests.get(
+            f"{Config.RADARR_URL}/api/v3/movie",
+            params={"apikey": Config.RADARR_API_KEY},
+            timeout=TIMEOUT,
+        )
+        r.raise_for_status()
+        movies = r.json()
+        total_size = sum(m.get("sizeOnDisk", 0) for m in movies)
+        has_file = sum(1 for m in movies if m.get("hasFile"))
+        return {
+            "count": has_file,
+            "total": len(movies),
+            "size_gb": round(total_size / (1024**3), 1),
+        }
+    except Exception:
+        return None
+
+
+def _fetch_sonarr():
+    if not Config.SONARR_API_KEY:
+        return None
+    try:
+        r = requests.get(
+            f"{Config.SONARR_URL}/api/v3/series",
+            params={"apikey": Config.SONARR_API_KEY},
+            timeout=TIMEOUT,
+        )
+        r.raise_for_status()
+        series = r.json()
+        total_size = sum(s.get("statistics", {}).get("sizeOnDisk", 0) for s in series)
+        total_episodes = sum(s.get("statistics", {}).get("episodeFileCount", 0) for s in series)
+        return {
+            "count": len(series),
+            "episodes": total_episodes,
+            "size_gb": round(total_size / (1024**3), 1),
+        }
+    except Exception:
+        return None
+
+
+def _fetch_tautulli_libraries():
+    try:
+        r = requests.get(
+            f"{Config.TAUTULLI_URL}/api/v2",
+            params={"apikey": Config.TAUTULLI_API_KEY, "cmd": "get_libraries"},
+            timeout=TIMEOUT,
+        )
+        r.raise_for_status()
+        data = r.json()
+        libs = data.get("response", {}).get("data", [])
+
+        result = {}
+        for lib in libs:
+            section_type = lib.get("section_type", "")
+            if section_type == "artist":
+                result["music"] = {
+                    "count": int(lib.get("count", 0)),
+                    "child_count": int(lib.get("child_count", 0)),
+                }
+        return result
     except Exception:
         return None
 
