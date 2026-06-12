@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Server Status</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :root {
+    --bg: #000000;
+    --surface: rgba(255, 255, 255, 0.04);
+    --surface-raised: rgba(255, 255, 255, 0.08);
+    --border: rgba(255, 255, 255, 0.08);
+    --text-primary: rgba(255, 255, 255, 0.92);
+    --text-secondary: rgba(255, 255, 255, 0.55);
+    --text-dim: rgba(255, 255, 255, 0.28);
+
+    --green: #34C759;
+    --amber: #FF9500;
+    --red: #FF3B30;
+    --blue: #0A84FF;
+
+    --green-glow: rgba(52, 199, 89, 0.15);
+    --amber-glow: rgba(255, 149, 0, 0.15);
+    --red-glow: rgba(255, 59, 48, 0.15);
+  }
+
+  body {
+    background: var(--bg);
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', sans-serif;
+    color: var(--text-primary);
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: pan-y;
+  }
+
+  /* Panel container */
+  .panels {
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+
+  .panel {
+    position: absolute;
+    inset: 0;
+    padding: 32px 24px 80px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    opacity: 0;
+    transform: translateX(40px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    pointer-events: none;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .panel.active {
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: auto;
+  }
+
+  .panel.exit-left {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+
+  /* Section header */
+  .panel-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+
+  .panel-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+
+  .panel-title {
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  .panel-subtitle {
+    font-size: 12px;
+    color: var(--text-dim);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-left: auto;
+  }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+  }
+
+  .card-label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+
+  /* Metrics */
+  .metric-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 16px;
+  }
+
+  .metric {
+    text-align: center;
+  }
+
+  .metric-val {
+    font-size: 36px;
+    font-weight: 200;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .metric-unit {
+    font-size: 14px;
+    font-weight: 300;
+    color: var(--text-secondary);
+  }
+
+  .metric-label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+
+  /* Progress bars */
+  .bar-track {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 1s ease, background-color 0.6s ease;
+  }
+
+  .bar-fill.green { background: var(--green); box-shadow: 0 0 8px var(--green-glow); }
+  .bar-fill.amber { background: var(--amber); box-shadow: 0 0 8px var(--amber-glow); }
+  .bar-fill.red { background: var(--red); box-shadow: 0 0 8px var(--red-glow); }
+
+  /* Gauge (circular arc for CPU) */
+  .gauge-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    width: 140px;
+    height: 140px;
+    margin: 0 auto;
+  }
+
+  .gauge-svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+  }
+
+  .gauge-bg {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.06);
+    stroke-width: 8;
+  }
+
+  .gauge-fill {
+    fill: none;
+    stroke-width: 8;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1s ease, stroke 0.6s ease;
+  }
+
+  .gauge-text {
+    position: absolute;
+    font-size: 32px;
+    font-weight: 200;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .gauge-label {
+    position: absolute;
+    bottom: 16px;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  /* Disk list */
+  .disk-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .disk-item {
+    display: grid;
+    grid-template-columns: 60px 1fr 50px;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .disk-name {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .disk-pct {
+    font-size: 12px;
+    font-weight: 500;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Temp chips */
+  .chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--surface-raised);
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .chip-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+
+  /* Media stream rows */
+  .stream-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .stream-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px;
+    background: var(--surface-raised);
+    border-radius: 10px;
+  }
+
+  .stream-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .stream-user {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .stream-state {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--green);
+  }
+
+  .stream-title {
+    font-size: 12px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .stream-progress {
+    height: 3px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .stream-progress-fill {
+    height: 100%;
+    background: var(--blue);
+    border-radius: 2px;
+    transition: width 1s ease;
+  }
+
+  /* UPS battery visual */
+  .battery-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .battery-svg {
+    width: 80px;
+    height: 140px;
+  }
+
+  .battery-body {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.15);
+    stroke-width: 2;
+  }
+
+  .battery-cap {
+    fill: rgba(255, 255, 255, 0.15);
+  }
+
+  .battery-fill-rect {
+    transition: height 1s ease, fill 0.6s ease;
+  }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+  }
+
+  .status-badge.good {
+    background: rgba(52, 199, 89, 0.12);
+    color: var(--green);
+  }
+
+  .status-badge.warning {
+    background: rgba(255, 149, 0, 0.12);
+    color: var(--amber);
+  }
+
+  .status-badge.critical {
+    background: rgba(255, 59, 48, 0.12);
+    color: var(--red);
+  }
+
+  .status-badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  /* Network donut */
+  .donut-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    width: 120px;
+    height: 120px;
+  }
+
+  .donut-svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+  }
+
+  .donut-bg {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.06);
+    stroke-width: 12;
+  }
+
+  .donut-wired {
+    fill: none;
+    stroke: var(--blue);
+    stroke-width: 12;
+    stroke-linecap: round;
+    transition: stroke-dasharray 1s ease;
+  }
+
+  .donut-wireless {
+    fill: none;
+    stroke: var(--green);
+    stroke-width: 12;
+    stroke-linecap: round;
+    transition: stroke-dasharray 1s ease, stroke-dashoffset 1s ease;
+  }
+
+  .donut-text {
+    position: absolute;
+    font-size: 24px;
+    font-weight: 200;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .donut-label {
+    position: absolute;
+    bottom: 20px;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  /* Navigation dots */
+  .nav {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 100;
+  }
+
+  .nav-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    transition: background 0.3s ease, transform 0.3s ease;
+    cursor: pointer;
+    padding: 0;
+    border: none;
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .nav-dot::after {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    transition: background 0.3s ease, transform 0.3s ease, width 0.3s ease;
+  }
+
+  .nav-dot.active::after {
+    background: var(--blue);
+    transform: scale(1.3);
+    width: 20px;
+    border-radius: 4px;
+  }
+
+  /* Clock */
+  .clock {
+    position: fixed;
+    top: 16px;
+    right: 20px;
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+    z-index: 100;
+  }
+
+  /* Stale indicator */
+  .stale-badge {
+    position: fixed;
+    top: 16px;
+    left: 20px;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    color: var(--amber);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 100;
+  }
+
+  .stale-badge.visible {
+    opacity: 1;
+  }
+
+  /* Empty state */
+  .empty {
+    color: var(--text-dim);
+    font-size: 13px;
+    font-style: italic;
+    padding: 12px 0;
+  }
+
+  /* Layout helpers */
+  .row { display: flex; gap: 16px; align-items: center; }
+  .col { display: flex; flex-direction: column; gap: 8px; }
+  .flex-1 { flex: 1; }
+  .center { text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="clock" id="clock"></div>
+<div class="stale-badge" id="staleBadge"></div>
+
+<div class="panels" id="panels">
+
+  <!-- Panel 1: System -->
+  <div class="panel active" data-panel="0">
+    <div class="panel-header">
+      <div class="panel-icon" style="background: rgba(52,199,89,0.12);">
+        <span style="color: var(--green);">&#9881;</span>
+      </div>
+      <div class="panel-title">System</div>
+      <div class="panel-subtitle" id="sysSubtitle">M1dKNAS</div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="gap: 24px; justify-content: center;">
+        <div class="gauge-wrap">
+          <svg class="gauge-svg" viewBox="0 0 100 100">
+            <circle class="gauge-bg" cx="50" cy="50" r="42"/>
+            <circle class="gauge-fill" id="cpuGauge" cx="50" cy="50" r="42"
+              stroke-dasharray="263.9" stroke-dashoffset="263.9"/>
+          </svg>
+          <span class="gauge-text" id="cpuVal">--</span>
+          <span class="gauge-label">CPU</span>
+        </div>
+        <div class="col flex-1">
+          <div class="card-label">Memory</div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+            <span style="font-size:13px; color:var(--text-secondary);" id="ramText">-- / -- GB</span>
+            <span style="font-size:13px; font-weight:500; font-variant-numeric:tabular-nums;" id="ramPct">--%</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill green" id="ramBar" style="width:0%"></div>
+          </div>
+          <div class="card-label" style="margin-top:16px;">Disk I/O</div>
+          <div style="display:flex; gap:16px;">
+            <span style="font-size:12px; color:var(--text-secondary);">&#8595; <span id="ioRead">--</span> MB/s</span>
+            <span style="font-size:12px; color:var(--text-secondary);">&#8593; <span id="ioWrite">--</span> MB/s</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Storage</div>
+      <div class="disk-list" id="diskList">
+        <div class="empty">Loading...</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Temperatures</div>
+      <div class="chip-row" id="tempChips">
+        <div class="empty">Loading...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Panel 2: Media -->
+  <div class="panel" data-panel="1">
+    <div class="panel-header">
+      <div class="panel-icon" style="background: rgba(10,132,255,0.12);">
+        <span style="color: var(--blue);">&#9654;</span>
+      </div>
+      <div class="panel-title">Media</div>
+      <div class="panel-subtitle" id="mediaSubtitle">Plex &amp; Downloads</div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Active Streams</div>
+      <div class="stream-list" id="streamList">
+        <div class="empty">No active streams</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Downloads</div>
+      <div class="metric-row" style="margin-bottom:12px;">
+        <div class="metric">
+          <div class="metric-val" id="dlSpeed">--</div>
+          <div class="metric-unit">Mbps</div>
+          <div class="metric-label">Speed</div>
+        </div>
+        <div class="metric">
+          <div class="metric-val" id="dlActive">--</div>
+          <div class="metric-label">Active</div>
+        </div>
+        <div class="metric">
+          <div class="metric-val" id="reqPending">--</div>
+          <div class="metric-label">Requests</div>
+        </div>
+      </div>
+      <div class="stream-list" id="downloadList"></div>
+    </div>
+  </div>
+
+  <!-- Panel 3: UPS -->
+  <div class="panel" data-panel="2">
+    <div class="panel-header">
+      <div class="panel-icon" style="background: rgba(255,149,0,0.12);">
+        <span style="color: var(--amber);">&#9889;</span>
+      </div>
+      <div class="panel-title">UPS</div>
+      <div class="panel-subtitle">Eaton 3S 550</div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="gap:32px; justify-content:center;">
+        <div class="battery-wrap">
+          <svg class="battery-svg" viewBox="0 0 50 90">
+            <rect class="battery-cap" x="18" y="0" width="14" height="5" rx="2"/>
+            <rect class="battery-body" x="8" y="6" width="34" height="80" rx="5"/>
+            <rect class="battery-fill-rect" id="batteryFill" x="12" y="10" width="26" rx="3"
+              fill="var(--green)" height="0"/>
+          </svg>
+          <span class="metric-val" id="batteryPct">--</span>
+          <span class="metric-unit">%</span>
+        </div>
+        <div class="col" style="gap:16px;">
+          <div id="upsStatusBadge" class="status-badge good">
+            <span class="status-badge-dot"></span>
+            <span id="upsStatusText">--</span>
+          </div>
+          <div class="metric">
+            <div class="metric-val" style="font-size:28px;" id="upsPower">--</div>
+            <div class="metric-unit">W</div>
+            <div class="metric-label">Draw</div>
+          </div>
+          <div class="metric">
+            <div class="metric-val" style="font-size:28px;" id="upsHeadroom">--</div>
+            <div class="metric-unit">W</div>
+            <div class="metric-label">Headroom</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="metric-row">
+        <div class="metric">
+          <div class="metric-val" style="font-size:24px;" id="upsLoad">--</div>
+          <div class="metric-unit">%</div>
+          <div class="metric-label">Load</div>
+        </div>
+        <div class="metric">
+          <div class="metric-val" style="font-size:24px;" id="upsVoltage">--</div>
+          <div class="metric-unit">V</div>
+          <div class="metric-label">Output</div>
+        </div>
+        <div class="metric">
+          <div class="metric-val" style="font-size:24px;" id="upsRuntime">--</div>
+          <div class="metric-unit">min</div>
+          <div class="metric-label">Runtime</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Load</div>
+      <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+        <span style="font-size:12px; color:var(--text-secondary);">0W</span>
+        <span style="font-size:12px; color:var(--text-secondary);">550 VA</span>
+      </div>
+      <div class="bar-track" style="height:8px;">
+        <div class="bar-fill green" id="upsLoadBar" style="width:0%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Panel 4: Network -->
+  <div class="panel" data-panel="3">
+    <div class="panel-header">
+      <div class="panel-icon" style="background: rgba(10,132,255,0.12);">
+        <span style="color: var(--blue);">&#8801;</span>
+      </div>
+      <div class="panel-title">Network</div>
+      <div class="panel-subtitle">UniFi UDM SE</div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between; margin-bottom:16px;">
+        <div id="wanBadge" class="status-badge good">
+          <span class="status-badge-dot"></span>
+          <span id="wanStatus">--</span>
+        </div>
+        <span style="font-size:12px; color:var(--text-dim); font-variant-numeric:tabular-nums;" id="wanLatency">-- ms</span>
+      </div>
+      <div class="metric-row">
+        <div class="metric">
+          <div class="metric-val" id="wanDown">--</div>
+          <div class="metric-unit">Mbps</div>
+          <div class="metric-label">Down</div>
+        </div>
+        <div class="metric">
+          <div class="metric-val" id="wanUp">--</div>
+          <div class="metric-unit">Mbps</div>
+          <div class="metric-label">Up</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Connected Clients</div>
+      <div class="row" style="justify-content:center; gap:32px;">
+        <div class="donut-wrap">
+          <svg class="donut-svg" viewBox="0 0 100 100">
+            <circle class="donut-bg" cx="50" cy="50" r="40"/>
+            <circle class="donut-wired" id="donutWired" cx="50" cy="50" r="40"
+              stroke-dasharray="0 251.3" stroke-dashoffset="0"/>
+            <circle class="donut-wireless" id="donutWireless" cx="50" cy="50" r="40"
+              stroke-dasharray="0 251.3" stroke-dashoffset="0"/>
+          </svg>
+          <span class="donut-text" id="clientTotal">--</span>
+          <span class="donut-label">Devices</span>
+        </div>
+        <div class="col" style="gap:8px;">
+          <div class="chip">
+            <span class="chip-dot" style="background:var(--blue);"></span>
+            Wired: <span id="clientWired">--</span>
+          </div>
+          <div class="chip">
+            <span class="chip-dot" style="background:var(--green);"></span>
+            Wireless: <span id="clientWireless">--</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Navigation dots -->
+<nav class="nav" id="nav">
+  <button class="nav-dot active" data-index="0"></button>
+  <button class="nav-dot" data-index="1"></button>
+  <button class="nav-dot" data-index="2"></button>
+  <button class="nav-dot" data-index="3"></button>
+</nav>
+
+<script>
+(function() {
+  const PANEL_COUNT = 4;
+  const ROTATE_INTERVAL = 30000;
+  const FETCH_INTERVAL = 10000;
+
+  let currentPanel = 0;
+  let rotateTimer = null;
+  let touchStartX = 0;
+  let touchStartTime = 0;
+
+  // ── Navigation ──
+
+  function goTo(index, direction) {
+    const panels = document.querySelectorAll('.panel');
+    const dots = document.querySelectorAll('.nav-dot');
+    const prev = panels[currentPanel];
+
+    if (index === currentPanel) return;
+
+    prev.classList.remove('active');
+    prev.classList.add(direction === 'left' ? 'exit-left' : '');
+    setTimeout(() => prev.classList.remove('exit-left'), 500);
+
+    currentPanel = index;
+    panels[currentPanel].classList.add('active');
+
+    dots.forEach((d, i) => d.classList.toggle('active', i === currentPanel));
+    resetTimer();
+  }
+
+  function next() {
+    goTo((currentPanel + 1) % PANEL_COUNT, 'left');
+  }
+
+  function prev() {
+    goTo((currentPanel - 1 + PANEL_COUNT) % PANEL_COUNT, 'right');
+  }
+
+  function resetTimer() {
+    clearInterval(rotateTimer);
+    rotateTimer = setInterval(next, ROTATE_INTERVAL);
+  }
+
+  // Dot click
+  document.getElementById('nav').addEventListener('click', e => {
+    const dot = e.target.closest('.nav-dot');
+    if (!dot) return;
+    const idx = parseInt(dot.dataset.index);
+    const dir = idx > currentPanel ? 'left' : 'right';
+    goTo(idx, dir);
+  });
+
+  // Swipe
+  document.addEventListener('touchstart', e => {
+    touchStartX = e.touches[0].clientX;
+    touchStartTime = Date.now();
+  }, { passive: true });
+
+  document.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    const dt = Date.now() - touchStartTime;
+    if (dt < 400 && Math.abs(dx) > 50) {
+      if (dx < 0) next();
+      else prev();
+    }
+  }, { passive: true });
+
+  // Keyboard
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight') next();
+    if (e.key === 'ArrowLeft') prev();
+  });
+
+  // ── Clock ──
+
+  function tickClock() {
+    document.getElementById('clock').textContent =
+      new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  }
+  tickClock();
+  setInterval(tickClock, 1000);
+
+  // ── Data Fetch ──
+
+  async function fetchAll() {
+    try {
+      const res = await fetch('/api/all');
+      const data = await res.json();
+      updateSystem(data.system);
+      updateMedia(data.media);
+      updateUps(data.ups);
+      updateNetwork(data.network);
+      showStale(data);
+    } catch (e) {
+      document.getElementById('staleBadge').textContent = 'Connection lost';
+      document.getElementById('staleBadge').classList.add('visible');
+    }
+  }
+
+  function showStale(data) {
+    const badge = document.getElementById('staleBadge');
+    const staleKeys = Object.keys(data).filter(k => data[k] && data[k]._stale);
+    if (staleKeys.length > 0) {
+      badge.textContent = `Stale: ${staleKeys.join(', ')}`;
+      badge.classList.add('visible');
+    } else {
+      badge.classList.remove('visible');
+    }
+  }
+
+  // ── Panel Updaters ──
+
+  function stateColor(pct) {
+    if (pct >= 80) return 'red';
+    if (pct >= 50) return 'amber';
+    return 'green';
+  }
+
+  function stateColorVar(pct) {
+    if (pct >= 80) return 'var(--red)';
+    if (pct >= 50) return 'var(--amber)';
+    return 'var(--green)';
+  }
+
+  function updateSystem(d) {
+    if (!d || d._error) return;
+
+    // CPU gauge
+    const cpu = d.cpu_percent || 0;
+    const circumference = 2 * Math.PI * 42;
+    const offset = circumference * (1 - cpu / 100);
+    const gauge = document.getElementById('cpuGauge');
+    gauge.style.strokeDashoffset = offset;
+    gauge.style.stroke = stateColorVar(cpu);
+    document.getElementById('cpuVal').textContent = Math.round(cpu);
+
+    // RAM
+    if (d.ram) {
+      document.getElementById('ramText').textContent = `${d.ram.used_gb} / ${d.ram.total_gb} GB`;
+      document.getElementById('ramPct').textContent = `${Math.round(d.ram.percent)}%`;
+      const ramBar = document.getElementById('ramBar');
+      ramBar.style.width = d.ram.percent + '%';
+      ramBar.className = 'bar-fill ' + stateColor(d.ram.percent);
+    }
+
+    // Disk I/O
+    if (d.disk_io) {
+      document.getElementById('ioRead').textContent = d.disk_io.read_mb_s;
+      document.getElementById('ioWrite').textContent = d.disk_io.write_mb_s;
+    }
+
+    // Disks
+    const diskList = document.getElementById('diskList');
+    if (d.disks && d.disks.length > 0) {
+      diskList.innerHTML = d.disks.map(disk => `
+        <div class="disk-item">
+          <span class="disk-name">${disk.name}</span>
+          <div class="bar-track">
+            <div class="bar-fill ${stateColor(disk.percent)}" style="width:${disk.percent}%"></div>
+          </div>
+          <span class="disk-pct" style="color:${stateColorVar(disk.percent)}">${Math.round(disk.percent)}%</span>
+        </div>
+      `).join('');
+    }
+
+    // Temperatures
+    const tempChips = document.getElementById('tempChips');
+    const temps = d.temperatures || [];
+    const fans = d.fans || [];
+    if (temps.length > 0 || fans.length > 0) {
+      let html = temps.map(t => {
+        const c = t.value > 75 ? 'var(--red)' : t.value > 55 ? 'var(--amber)' : 'var(--green)';
+        return `<div class="chip"><span class="chip-dot" style="background:${c}"></span>${t.label}: ${t.value}°${t.unit}</div>`;
+      }).join('');
+      html += fans.map(f =>
+        `<div class="chip"><span class="chip-dot" style="background:var(--blue)"></span>${f.label}: ${f.rpm} RPM</div>`
+      ).join('');
+      tempChips.innerHTML = html;
+    }
+  }
+
+  function updateMedia(d) {
+    if (!d || d._error) return;
+
+    // Streams
+    const streamList = document.getElementById('streamList');
+    if (d.streams && d.streams.count > 0) {
+      streamList.innerHTML = d.streams.items.map(s => `
+        <div class="stream-item">
+          <div class="stream-top">
+            <span class="stream-user">${s.user}</span>
+            <span class="stream-state">${s.state || 'playing'}</span>
+          </div>
+          <div class="stream-title">${s.title}</div>
+          <div class="stream-progress">
+            <div class="stream-progress-fill" style="width:${s.progress}%"></div>
+          </div>
+        </div>
+      `).join('');
+    } else {
+      streamList.innerHTML = '<div class="empty">No active streams</div>';
+    }
+
+    // Downloads
+    if (d.downloads) {
+      document.getElementById('dlSpeed').textContent = d.downloads.speed_mbps || '0';
+      document.getElementById('dlActive').textContent = d.downloads.active_count || '0';
+
+      const dlList = document.getElementById('downloadList');
+      if (d.downloads.active && d.downloads.active.length > 0) {
+        dlList.innerHTML = d.downloads.active.slice(0, 3).map(dl => `
+          <div class="stream-item">
+            <div class="stream-top">
+              <span class="stream-title" style="flex:1">${dl.name}</span>
+              <span style="font-size:11px; color:var(--text-secondary); font-variant-numeric:tabular-nums;">${dl.eta}</span>
+            </div>
+            <div class="stream-progress">
+              <div class="stream-progress-fill" style="width:${dl.progress}%; background:var(--green);"></div>
+            </div>
+          </div>
+        `).join('');
+      } else {
+        dlList.innerHTML = '';
+      }
+    }
+
+    document.getElementById('reqPending').textContent = d.requests_pending ?? '--';
+  }
+
+  function updateUps(d) {
+    if (!d || d._error) return;
+
+    // Battery fill
+    const pct = d.battery_percent || 0;
+    const maxHeight = 72;
+    const fillHeight = (pct / 100) * maxHeight;
+    const fillY = 10 + (maxHeight - fillHeight);
+    const fill = document.getElementById('batteryFill');
+    fill.setAttribute('height', fillHeight);
+    fill.setAttribute('y', fillY);
+
+    const battColor = d.health === 'critical' ? 'var(--red)' : d.health === 'warning' ? 'var(--amber)' : 'var(--green)';
+    fill.setAttribute('fill', battColor);
+
+    document.getElementById('batteryPct').textContent = Math.round(pct);
+
+    // Status badge
+    const badge = document.getElementById('upsStatusBadge');
+    badge.className = 'status-badge ' + (d.health || 'good');
+    document.getElementById('upsStatusText').textContent = d.status || '--';
+
+    // Metrics
+    document.getElementById('upsPower').textContent = d.real_power_w != null ? Math.round(d.real_power_w) : '--';
+    document.getElementById('upsHeadroom').textContent = d.headroom_w != null ? Math.round(d.headroom_w) : '--';
+    document.getElementById('upsLoad').textContent = d.load_percent != null ? Math.round(d.load_percent) : '--';
+    document.getElementById('upsVoltage').textContent = d.output_voltage != null ? d.output_voltage.toFixed(0) : '--';
+    document.getElementById('upsRuntime').textContent = d.runtime_minutes != null ? d.runtime_minutes.toFixed(0) : '--';
+
+    // Load bar
+    const loadPct = d.load_percent || 0;
+    const loadBar = document.getElementById('upsLoadBar');
+    loadBar.style.width = loadPct + '%';
+    loadBar.className = 'bar-fill ' + stateColor(loadPct);
+  }
+
+  function updateNetwork(d) {
+    if (!d || d._error) return;
+
+    // WAN badge
+    const wanBadge = document.getElementById('wanBadge');
+    if (d.wan) {
+      const isUp = d.wan.status === 'connected';
+      wanBadge.className = 'status-badge ' + (isUp ? 'good' : 'critical');
+      document.getElementById('wanStatus').textContent = isUp ? 'Connected' : 'Down';
+      document.getElementById('wanLatency').textContent = d.wan.latency_ms != null ? d.wan.latency_ms + ' ms' : '-- ms';
+      document.getElementById('wanDown').textContent = d.wan.down_mbps || '--';
+      document.getElementById('wanUp').textContent = d.wan.up_mbps || '--';
+    }
+
+    // Clients donut
+    if (d.clients) {
+      const total = d.clients.total || 0;
+      const wired = d.clients.wired || 0;
+      const wireless = d.clients.wireless || 0;
+      const circumference = 2 * Math.PI * 40;
+
+      document.getElementById('clientTotal').textContent = total;
+      document.getElementById('clientWired').textContent = wired;
+      document.getElementById('clientWireless').textContent = wireless;
+
+      if (total > 0) {
+        const wiredLen = (wired / total) * circumference;
+        const wirelessLen = (wireless / total) * circumference;
+
+        const donutWired = document.getElementById('donutWired');
+        donutWired.style.strokeDasharray = `${wiredLen} ${circumference}`;
+
+        const donutWireless = document.getElementById('donutWireless');
+        donutWireless.style.strokeDasharray = `${wirelessLen} ${circumference}`;
+        donutWireless.style.strokeDashoffset = `-${wiredLen}`;
+      }
+    }
+  }
+
+  // ── Init ──
+
+  resetTimer();
+  fetchAll();
+  setInterval(fetchAll, FETCH_INTERVAL);
+})();
+</script>
+</body>
+</html>

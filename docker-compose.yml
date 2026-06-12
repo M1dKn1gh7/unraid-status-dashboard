@@ -1,0 +1,17 @@
+services:
+  status-dashboard:
+    build: .
+    container_name: status-dashboard
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    env_file:
+      - .env
+    networks:
+      - docker-media-network
+    environment:
+      - TZ=Europe/London
+
+networks:
+  docker-media-network:
+    external: true
