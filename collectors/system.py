@@ -34,6 +34,7 @@ def collect():
     fs = _get(f"{base}/api/4/fs")
     diskio = _get(f"{base}/api/4/diskio")
     sensors = _get(f"{base}/api/4/sensors")
+    load = _get(f"{base}/api/4/load")
 
     cpu_percent = cpu.get("total", 0) if cpu else None
 
@@ -92,9 +93,15 @@ def collect():
                     "rpm": s.get("value", 0),
                 })
 
+    load_percent = None
+    if load:
+        cpucore = load.get("cpucore", 1)
+        load_percent = round((load.get("min1", 0) / cpucore) * 100, 1)
+
     return {
         "cpu_percent": cpu_percent,
         "ram": ram,
+        "load_percent": load_percent,
         "disks": disks,
         "temperatures": temperatures,
         "fans": fans,

@@ -615,31 +615,40 @@
     </div>
 
     <div class="card">
-      <div class="row" style="gap: 24px; justify-content: center;">
-        <div class="gauge-wrap">
-          <svg class="gauge-svg" viewBox="0 0 100 100">
-            <circle class="gauge-bg" cx="50" cy="50" r="42"/>
-            <circle class="gauge-fill" id="cpuGauge" cx="50" cy="50" r="42"
-              stroke-dasharray="263.9" stroke-dashoffset="263.9"/>
-          </svg>
-          <span class="gauge-text" id="cpuVal">--</span>
-          <span class="gauge-label">CPU</span>
-        </div>
-        <div class="col flex-1">
-          <div class="card-label">Memory</div>
+      <div class="card-label">Utilisation</div>
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <div>
           <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-            <span style="font-size:13px; color:var(--text-secondary);" id="ramText">-- / -- GB</span>
-            <span style="font-size:13px; font-weight:500; font-variant-numeric:tabular-nums;" id="ramPct">--%</span>
+            <span style="font-size:12px; color:var(--text-secondary);">CPU</span>
+            <span style="font-size:12px; font-weight:500; font-variant-numeric:tabular-nums; color:var(--text-primary);" id="cpuPct">--%</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill green" id="cpuBar" style="width:0%"></div>
+          </div>
+        </div>
+        <div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+            <span style="font-size:12px; color:var(--text-secondary);">Memory</span>
+            <span style="font-size:12px; font-weight:500; font-variant-numeric:tabular-nums; color:var(--text-primary);" id="ramPct">--%</span>
           </div>
           <div class="bar-track">
             <div class="bar-fill green" id="ramBar" style="width:0%"></div>
           </div>
-          <div class="card-label" style="margin-top:16px;">Disk I/O</div>
-          <div style="display:flex; gap:16px;">
-            <span style="font-size:12px; color:var(--text-secondary);">&#8595; <span id="ioRead">--</span> MB/s</span>
-            <span style="font-size:12px; color:var(--text-secondary);">&#8593; <span id="ioWrite">--</span> MB/s</span>
+          <span style="font-size:11px; color:var(--text-dim); margin-top:2px;" id="ramText">-- / -- GB</span>
+        </div>
+        <div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+            <span style="font-size:12px; color:var(--text-secondary);">Load</span>
+            <span style="font-size:12px; font-weight:500; font-variant-numeric:tabular-nums; color:var(--text-primary);" id="loadPct">--%</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill green" id="loadBar" style="width:0%"></div>
           </div>
         </div>
+      </div>
+      <div style="display:flex; gap:12px; margin-top:12px; flex-wrap:wrap; align-items:center;">
+        <div class="chip-row" id="cpuTempChips" style="margin:0;"></div>
+        <span style="font-size:11px; color:var(--text-dim); margin-left:auto;" id="ioText">I/O: -- R / -- W MB/s</span>
       </div>
     </div>
 
@@ -653,13 +662,6 @@
         <div class="bar-fill green" id="storageTotalBar" style="width:0%; border-radius:5px;"></div>
       </div>
       <div class="disk-list" id="diskList">
-        <div class="empty">Loading...</div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-label">Temperatures</div>
-      <div class="chip-row" id="tempChips">
         <div class="empty">Loading...</div>
       </div>
     </div>
@@ -1043,16 +1045,14 @@
   function updateSystem(d) {
     if (!d || d._error) return;
 
-    // CPU gauge
+    // CPU bar
     const cpu = d.cpu_percent || 0;
-    const circumference = 2 * Math.PI * 42;
-    const offset = circumference * (1 - cpu / 100);
-    const gauge = document.getElementById('cpuGauge');
-    gauge.style.strokeDashoffset = offset;
-    gauge.style.stroke = stateColorVar(cpu);
-    document.getElementById('cpuVal').textContent = Math.round(cpu);
+    const cpuBar = document.getElementById('cpuBar');
+    cpuBar.style.width = cpu + '%';
+    cpuBar.className = 'bar-fill ' + stateColor(cpu);
+    document.getElementById('cpuPct').textContent = Math.round(cpu) + '%';
 
-    // RAM
+    // RAM bar
     if (d.ram) {
       document.getElementById('ramText').textContent = `${d.ram.used_gb} / ${d.ram.total_gb} GB`;
       document.getElementById('ramPct').textContent = `${Math.round(d.ram.percent)}%`;
@@ -1061,10 +1061,26 @@
       ramBar.className = 'bar-fill ' + stateColor(d.ram.percent);
     }
 
+    // Load bar
+    const loadPct = d.load_percent || 0;
+    const loadBar = document.getElementById('loadBar');
+    loadBar.style.width = Math.min(loadPct, 100) + '%';
+    loadBar.className = 'bar-fill ' + stateColor(loadPct);
+    document.getElementById('loadPct').textContent = loadPct.toFixed(0) + '%';
+
+    // CPU temps (compact chips below bars)
+    const cpuTempChips = document.getElementById('cpuTempChips');
+    const cpuTemps = (d.temperatures || []).filter(t => t.label.includes('CPU'));
+    if (cpuTemps.length > 0) {
+      cpuTempChips.innerHTML = cpuTemps.map(t => {
+        const c = t.value > 75 ? 'var(--red)' : t.value > 55 ? 'var(--amber)' : 'var(--green)';
+        return `<div class="chip"><span class="chip-dot" style="background:${c}"></span>${t.value}°C</div>`;
+      }).join('');
+    }
+
     // Disk I/O
     if (d.disk_io) {
-      document.getElementById('ioRead').textContent = d.disk_io.read_mb_s;
-      document.getElementById('ioWrite').textContent = d.disk_io.write_mb_s;
+      document.getElementById('ioText').textContent = `I/O: ${d.disk_io.read_mb_s} R / ${d.disk_io.write_mb_s} W MB/s`;
     }
 
     // Disks
@@ -1093,21 +1109,6 @@
             <span class="disk-pct" style="color:${stateColorVar(disk.percent)}">${Math.round(disk.percent)}%</span>
           </div>`;
       }).join('');
-    }
-
-    // Temperatures
-    const tempChips = document.getElementById('tempChips');
-    const temps = d.temperatures || [];
-    const fans = d.fans || [];
-    if (temps.length > 0 || fans.length > 0) {
-      let html = temps.map(t => {
-        const c = t.value > 75 ? 'var(--red)' : t.value > 55 ? 'var(--amber)' : 'var(--green)';
-        return `<div class="chip"><span class="chip-dot" style="background:${c}"></span>${t.label}: ${t.value}°${t.unit}</div>`;
-      }).join('');
-      html += fans.map(f =>
-        `<div class="chip"><span class="chip-dot" style="background:var(--blue)"></span>${f.label}: ${f.rpm} RPM</div>`
-      ).join('');
-      tempChips.innerHTML = html;
     }
 
     updateUnraid(d.unraid);
