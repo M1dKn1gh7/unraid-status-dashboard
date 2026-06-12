@@ -494,6 +494,29 @@
     border-radius: 4px;
   }
 
+  /* Auto-rotate toggle */
+  .nav-auto {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-dim);
+    font-size: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 8px;
+    transition: border-color 0.3s ease, color 0.3s ease, background 0.3s ease;
+  }
+
+  .nav-auto.active {
+    border-color: var(--blue);
+    color: var(--blue);
+    background: rgba(10, 132, 255, 0.1);
+  }
+
   /* Clock */
   .clock {
     position: fixed;
@@ -834,6 +857,9 @@
   <button class="nav-dot" data-index="1"></button>
   <button class="nav-dot" data-index="2"></button>
   <button class="nav-dot" data-index="3"></button>
+  <button class="nav-auto" id="autoToggle" title="Toggle auto-rotate">
+    <span id="autoIcon">&#9654;</span>
+  </button>
 </nav>
 
 <script>
@@ -844,6 +870,7 @@
 
   let currentPanel = 0;
   let rotateTimer = null;
+  let autoRotate = true;
   let touchStartX = 0;
   let touchStartTime = 0;
 
@@ -879,7 +906,24 @@
 
   function resetTimer() {
     clearInterval(rotateTimer);
-    rotateTimer = setInterval(next, ROTATE_INTERVAL);
+    if (autoRotate) {
+      rotateTimer = setInterval(next, ROTATE_INTERVAL);
+    }
+  }
+
+  function toggleAutoRotate() {
+    autoRotate = !autoRotate;
+    const btn = document.getElementById('autoToggle');
+    const icon = document.getElementById('autoIcon');
+    if (autoRotate) {
+      btn.classList.add('active');
+      icon.innerHTML = '&#9654;';
+      resetTimer();
+    } else {
+      btn.classList.remove('active');
+      icon.innerHTML = '&#10074;&#10074;';
+      clearInterval(rotateTimer);
+    }
   }
 
   // Dot click
@@ -1203,6 +1247,10 @@
       topList.innerHTML = '<div class="empty">No significant traffic</div>';
     }
   }
+
+  // Auto-rotate toggle
+  document.getElementById('autoToggle').addEventListener('click', toggleAutoRotate);
+  document.getElementById('autoToggle').classList.add('active');
 
   // ── Init ──
 
