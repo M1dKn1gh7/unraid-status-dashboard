@@ -587,6 +587,13 @@
 
     <div class="card">
       <div class="card-label">Storage</div>
+      <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;">
+        <span style="font-size:20px; font-weight:200; font-variant-numeric:tabular-nums;" id="storageUsed">--</span>
+        <span style="font-size:12px; color:var(--text-dim);">of <span id="storageTotal">--</span></span>
+      </div>
+      <div class="bar-track" style="height:10px; border-radius:5px; margin-bottom:16px;">
+        <div class="bar-fill green" id="storageTotalBar" style="width:0%; border-radius:5px;"></div>
+      </div>
       <div class="disk-list" id="diskList">
         <div class="empty">Loading...</div>
       </div>
@@ -984,6 +991,16 @@
     // Disks
     const diskList = document.getElementById('diskList');
     if (d.disks && d.disks.length > 0) {
+      const totalUsed = d.disks.reduce((sum, disk) => sum + disk.used_gb, 0);
+      const totalSize = d.disks.reduce((sum, disk) => sum + disk.total_gb, 0);
+      const totalPct = totalSize > 0 ? (totalUsed / totalSize) * 100 : 0;
+
+      document.getElementById('storageUsed').textContent = (totalUsed / 1024).toFixed(1) + ' TB used';
+      document.getElementById('storageTotal').textContent = (totalSize / 1024).toFixed(1) + ' TB';
+      const totalBar = document.getElementById('storageTotalBar');
+      totalBar.style.width = totalPct + '%';
+      totalBar.className = 'bar-fill ' + stateColor(totalPct);
+
       diskList.innerHTML = d.disks.map(disk => `
         <div class="disk-item">
           <span class="disk-name">${disk.name}</span>
