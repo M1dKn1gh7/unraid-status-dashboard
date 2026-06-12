@@ -9,7 +9,7 @@ A self-contained Docker container that displays real-time Unraid server health a
 | 1 | **System** | Glances + Unraid GraphQL | CPU/RAM/Load bars, array health, disk temps, SMART status, parity check, Docker containers, storage |
 | 2 | **Media** | Tautulli, qBittorrent, Overseerr, Radarr, Sonarr | Library stats, active Plex streams, downloads, pending requests |
 | 3 | **UPS** | Home Assistant (NUT) | Battery level, load, power draw, runtime, voltage |
-| 4 | **Network** | UniFi UDM SE | WAN throughput, hardware stats (UDM + AP temps/CPU/mem), active ports with client names + bandwidth, top clients |
+| 4 | **Network** | UniFi UDM SE | WAN throughput, hardware stats (UDM + AP temps/CPU/mem), active LAN ports with device/client names + bandwidth, top clients |
 
 ## Features
 

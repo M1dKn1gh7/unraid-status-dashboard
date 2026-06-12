@@ -158,12 +158,13 @@ Endpoints:
   - Total client count (large number)
   - Wired/wireless breakdown chips
   - Hardware section: UDM + AP CPU/mem/temp chips
-- Active Ports card (hidden if no data):
-  - Per-port: name, speed, rx/tx Mbps, connected client name
+- Active Ports card (hidden if no data, WAN port filtered out):
+  - Per-port: name, speed, rx/tx Mbps, connected client/device name
+  - Client name resolved from: station list → UniFi device uplink → port peer MAC
 - Top Clients card:
   - Up to 5 clients sorted by bandwidth, with down/up Mbps
 
-**Gateway parsing:** Extracts CPU%, mem%, uptime, WAN IP, port table (active ports with speed + throughput + connected client), and temperatures from device type `ugw`/`udm`.
+**Gateway parsing:** Extracts CPU%, mem%, uptime, WAN IP, port table (active LAN ports with speed + throughput + connected client), and temperatures from device type `ugw`/`udm`. WAN ports are filtered out via `is_uplink`, `port_conf_id`, port name, or `ifname` matching the device's `wan1` interface.
 
 **AP parsing:** Extracts CPU%, mem%, uptime, per-radio stats (band, channel, clients, satisfaction) from device type `uap`.
 
