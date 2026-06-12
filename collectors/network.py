@@ -128,9 +128,11 @@ def _parse_gateway(devices, wired_clients_by_port, clients):
             uptime_days = round(uptime_s / 86400, 1) if uptime_s else None
             temps = d.get("temperatures", [])
 
+            wan_ifname = (wan1.get("ifname") or "") if wan1 else ""
+
             ports = []
             for p in d.get("port_table", []):
-                if _is_wan_port(p):
+                if _is_wan_port(p, wan_ifname):
                     continue
                 if not p.get("up"):
                     continue
@@ -174,10 +176,17 @@ def _parse_gateway(devices, wired_clients_by_port, clients):
     return None
 
 
-def _is_wan_port(port_entry):
+def _is_wan_port(port_entry, wan_ifname=""):
     conf_id = (port_entry.get("port_conf_id") or "").upper()
     name = (port_entry.get("name") or "").upper()
-    return "WAN" in conf_id or "WAN" in name
+    if "WAN" in conf_id or "WAN" in name:
+        return True
+    if port_entry.get("is_uplink"):
+        return True
+    ifname = port_entry.get("ifname") or ""
+    if wan_ifname and ifname == wan_ifname:
+        return True
+    return False
 
 
 def _build_device_port_map(devices):
