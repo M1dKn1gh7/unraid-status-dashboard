@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>status-dashboard</Name>
+  <Repository>status-dashboard</Repository>
+  <Registry/>
+  <Network>docker-media-network</Network>
+  <Shell>bash</Shell>
+  <Privileged>false</Privileged>
+  <Support/>
+  <Overview>Server status dashboard showing system, media, UPS, and network data across 4 rotating panels.</Overview>
+  <Category>Tools: Status:</Category>
+  <WebUI>http://[IP]:[PORT:9090]/</WebUI>
+  <TemplateURL/>
+  <Icon>https://raw.githubusercontent.com/M1dKn1gh7/unraid-status-dashboard/main/icon.png</Icon>
+  <ExtraParams>--env-file=/mnt/user/appdata/status-dashboard/.env</ExtraParams>
+  <PostArgs/>
+  <DonateText/>
+  <DonateLink/>
+  <DonateImg/>
+  <DateInstalled/>
+  <Config Name="Port" Target="9090" Default="9090" Mode="tcp" Description="Dashboard web port" Type="Port" Display="always" Required="true" Mask="false">9090</Config>
+  <Config Name="Timezone" Target="TZ" Default="Europe/London" Mode="" Description="Container timezone" Type="Variable" Display="always" Required="false" Mask="false">Europe/London</Config>
+</Container>
