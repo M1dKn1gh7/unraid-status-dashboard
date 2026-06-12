@@ -51,11 +51,18 @@ def collect():
     wired = 0
     wireless = 0
     top_clients = []
+    wired_clients_by_port = {}
+
     if clients:
         total_clients = len(clients)
         for c in clients:
             if c.get("is_wired"):
                 wired += 1
+                port = c.get("sw_port")
+                if port is not None:
+                    wired_clients_by_port[port] = (
+                        c.get("name") or c.get("hostname") or c.get("mac", "Unknown")
+                    )
             else:
                 wireless += 1
 
@@ -77,9 +84,11 @@ def collect():
                 "down_mbps": round(rx * 8 / 1_000_000, 2),
                 "up_mbps": round(tx * 8 / 1_000_000, 2),
                 "total_mbps": round(total_bw * 8 / 1_000_000, 2),
+                "is_wired": c.get("is_wired", False),
             })
 
-    gateway = _parse_gateway(devices)
+    gateway = _parse_gateway(devices, wired_clients_by_port)
+    ap = _parse_ap(devices)
 
     return {
         "wan": wan,
@@ -92,20 +101,46 @@ def collect():
         "wlan_status": wlan,
         "lan_status": lan,
         "gateway": gateway,
+        "ap": ap,
         "health": _overall_health(wan, wlan, lan),
     }
 
 
-def _parse_gateway(devices):
+def _parse_gateway(devices, wired_clients_by_port):
     if not devices:
         return None
 
     for d in devices:
-        if d.get("type") == "ugw" or d.get("type") == "udm":
+        if d.get("type") in ("ugw", "udm"):
             sys_stats = d.get("system-stats", {})
             wan1 = d.get("wan1", {})
             uptime_s = d.get("uptime")
             uptime_days = round(uptime_s / 86400, 1) if uptime_s else None
+            temps = d.get("temperatures", [])
+
+            ports = []
+            for p in d.get("port_table", []):
+                if not p.get("up"):
+                    continue
+                port_idx = p.get("port_idx")
+                rx_mbps = round(p.get("rx_bytes-r", 0) * 8 / 1_000_000, 1)
+                tx_mbps = round(p.get("tx_bytes-r", 0) * 8 / 1_000_000, 1)
+                client_name = wired_clients_by_port.get(port_idx)
+                ports.append({
+                    "name": p.get("name", f"Port {port_idx}"),
+                    "speed": p.get("speed", 0),
+                    "rx_mbps": rx_mbps,
+                    "tx_mbps": tx_mbps,
+                    "poe": p.get("poe_enable", False),
+                    "client": client_name,
+                })
+
+            parsed_temps = []
+            for t in temps:
+                parsed_temps.append({
+                    "name": t.get("name", ""),
+                    "value": round(t.get("value", 0), 1),
+                })
 
             return {
                 "name": d.get("name", "UDM"),
@@ -114,7 +149,41 @@ def _parse_gateway(devices):
                 "mem_pct": _safe_float(sys_stats.get("mem")),
                 "uptime_days": uptime_days,
                 "wan_ip": wan1.get("ip") if wan1 else None,
+                "temperatures": parsed_temps,
+                "ports": ports,
+            }
+
+    return None
+
+
+def _parse_ap(devices):
+    if not devices:
+        return None
+
+    for d in devices:
+        if d.get("type") == "uap":
+            sys_stats = d.get("system-stats", {})
+            uptime_s = d.get("uptime")
+
+            radios = []
+            for r in d.get("radio_table_stats", []):
+                band = "5GHz" if r.get("radio") == "na" else "2.4GHz"
+                radios.append({
+                    "band": band,
+                    "channel": r.get("channel"),
+                    "clients": r.get("num_sta", 0),
+                    "satisfaction": r.get("satisfaction"),
+                })
+
+            return {
+                "name": d.get("name", "AP"),
+                "model": d.get("model", ""),
+                "clients": d.get("num_sta", 0),
                 "satisfaction": d.get("satisfaction"),
+                "cpu_pct": _safe_float(sys_stats.get("cpu")),
+                "mem_pct": _safe_float(sys_stats.get("mem")),
+                "uptime_days": round(uptime_s / 86400, 1) if uptime_s else None,
+                "radios": radios,
             }
 
     return None

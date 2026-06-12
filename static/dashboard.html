@@ -821,7 +821,6 @@
         </div>
         <span style="font-size:11px; color:var(--text-dim); font-variant-numeric:tabular-nums;" id="wanIp">--</span>
       </div>
-      <div class="card-label" style="margin-bottom:6px;">Throughput</div>
       <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
         <div>
           <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
@@ -842,32 +841,36 @@
           </div>
         </div>
       </div>
-      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <div style="display:flex; gap:8px; flex-wrap:wrap;" id="wanChips">
         <span class="chip" id="wanLatencyChip" style="display:none;"></span>
         <span class="chip" id="gatewayUptimeChip" style="display:none;"></span>
       </div>
     </div>
 
     <div class="card">
-      <div class="card-label" style="margin-bottom:8px;">Clients</div>
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-        <span style="font-size:28px; font-weight:200; font-variant-numeric:tabular-nums;" id="clientTotal">--</span>
+        <div>
+          <span style="font-size:28px; font-weight:200; font-variant-numeric:tabular-nums;" id="clientTotal">--</span>
+          <span style="font-size:12px; color:var(--text-dim); margin-left:6px;">clients</span>
+        </div>
         <div style="display:flex; gap:8px;">
           <span class="chip"><span class="chip-dot" style="background:var(--blue);"></span><span id="clientWired">--</span> wired</span>
           <span class="chip"><span class="chip-dot" style="background:var(--green);"></span><span id="clientWireless">--</span> wifi</span>
         </div>
       </div>
-      <div id="gatewaySection" style="display:none;">
-        <div class="card-label" style="margin-bottom:6px;">Gateway</div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <span class="chip" id="gwCpuChip">CPU: --%</span>
-          <span class="chip" id="gwMemChip">Mem: --%</span>
-        </div>
+      <div id="hardwareSection" style="display:none;">
+        <div class="card-label" style="margin-bottom:6px;">Hardware</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;" id="hwChips"></div>
       </div>
     </div>
 
+    <div class="card" id="portsCard" style="display:none;">
+      <div class="card-label" style="margin-bottom:8px;">Active Ports</div>
+      <div style="display:flex; flex-direction:column; gap:8px;" id="portsList"></div>
+    </div>
+
     <div class="card">
-      <div class="card-label">Active Clients</div>
+      <div class="card-label">Top Clients</div>
       <div class="stream-list" id="topClientsList">
         <div class="empty">Loading...</div>
       </div>
@@ -1368,21 +1371,50 @@
         uptimeChip.style.display = '';
         uptimeChip.innerHTML = '<span class="chip-dot" style="background:var(--blue)"></span>' + d.gateway.uptime_days + 'd uptime';
       }
+    }
 
-      const gwSection = document.getElementById('gatewaySection');
-      if (d.gateway.cpu_pct != null || d.gateway.mem_pct != null) {
-        gwSection.style.display = '';
-        const cpuChip = document.getElementById('gwCpuChip');
-        const memChip = document.getElementById('gwMemChip');
-        if (d.gateway.cpu_pct != null) {
-          const cpuColor = d.gateway.cpu_pct >= 80 ? 'var(--red)' : d.gateway.cpu_pct >= 50 ? 'var(--amber)' : 'var(--green)';
-          cpuChip.innerHTML = `<span class="chip-dot" style="background:${cpuColor}"></span>CPU: ${d.gateway.cpu_pct}%`;
-        }
-        if (d.gateway.mem_pct != null) {
-          const memColor = d.gateway.mem_pct >= 80 ? 'var(--red)' : d.gateway.mem_pct >= 50 ? 'var(--amber)' : 'var(--green)';
-          memChip.innerHTML = `<span class="chip-dot" style="background:${memColor}"></span>Mem: ${d.gateway.mem_pct}%`;
-        }
+    // Hardware chips (UDM + AP)
+    const hwSection = document.getElementById('hardwareSection');
+    const hwChips = document.getElementById('hwChips');
+    const chips = [];
+
+    if (d.gateway) {
+      if (d.gateway.cpu_pct != null) {
+        const c = stateColorVar(d.gateway.cpu_pct);
+        chips.push(`<span class="chip"><span class="chip-dot" style="background:${c}"></span>UDM CPU ${d.gateway.cpu_pct}%</span>`);
       }
+      if (d.gateway.mem_pct != null) {
+        const c = stateColorVar(d.gateway.mem_pct);
+        chips.push(`<span class="chip"><span class="chip-dot" style="background:${c}"></span>UDM Mem ${d.gateway.mem_pct}%</span>`);
+      }
+      if (d.gateway.temperatures) {
+        d.gateway.temperatures.forEach(t => {
+          const tc = t.value >= 75 ? 'var(--red)' : t.value >= 55 ? 'var(--amber)' : 'var(--green)';
+          chips.push(`<span class="chip"><span class="chip-dot" style="background:${tc}"></span>${t.name} ${t.value}°C</span>`);
+        });
+      }
+    }
+
+    if (d.ap) {
+      if (d.ap.cpu_pct != null) {
+        const c = stateColorVar(d.ap.cpu_pct);
+        chips.push(`<span class="chip"><span class="chip-dot" style="background:${c}"></span>AP CPU ${d.ap.cpu_pct}%</span>`);
+      }
+      if (d.ap.mem_pct != null) {
+        const c = stateColorVar(d.ap.mem_pct);
+        chips.push(`<span class="chip"><span class="chip-dot" style="background:${c}"></span>AP Mem ${d.ap.mem_pct}%</span>`);
+      }
+      if (d.ap.satisfaction != null) {
+        const sc = d.ap.satisfaction >= 80 ? 'var(--green)' : d.ap.satisfaction >= 50 ? 'var(--amber)' : 'var(--red)';
+        chips.push(`<span class="chip"><span class="chip-dot" style="background:${sc}"></span>WiFi ${d.ap.satisfaction}%</span>`);
+      }
+    }
+
+    if (chips.length > 0) {
+      hwSection.style.display = '';
+      hwChips.innerHTML = chips.join('');
+    } else {
+      hwSection.style.display = 'none';
     }
 
     // Clients
@@ -1390,6 +1422,28 @@
       document.getElementById('clientTotal').textContent = d.clients.total || 0;
       document.getElementById('clientWired').textContent = d.clients.wired || 0;
       document.getElementById('clientWireless').textContent = d.clients.wireless || 0;
+    }
+
+    // Ports card
+    const portsCard = document.getElementById('portsCard');
+    const portsList = document.getElementById('portsList');
+    if (d.gateway && d.gateway.ports && d.gateway.ports.length > 0) {
+      portsCard.style.display = '';
+      portsList.innerHTML = d.gateway.ports.map(p => {
+        const bw = p.rx_mbps + p.tx_mbps;
+        const label = p.client || p.name;
+        const speedLabel = p.speed >= 1000 ? (p.speed / 1000) + 'G' : p.speed + 'M';
+        const bwColor = bw >= 100 ? 'var(--red)' : bw >= 20 ? 'var(--amber)' : 'var(--green)';
+        const bwText = bw >= 1 ? `${bw.toFixed(1)} Mbps` : bw > 0 ? `${(bw * 1000).toFixed(0)} Kbps` : 'Idle';
+        return `<div style="display:flex; align-items:center; gap:8px;">
+          <span class="chip-dot" style="background:${bwColor}; flex-shrink:0;"></span>
+          <span style="font-size:12px; font-weight:500; color:var(--text-secondary); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${label}</span>
+          <span style="font-size:10px; color:var(--text-dim);">${speedLabel}</span>
+          <span style="font-size:11px; font-variant-numeric:tabular-nums; color:var(--text-secondary); min-width:60px; text-align:right;">${bwText}</span>
+        </div>`;
+      }).join('');
+    } else {
+      portsCard.style.display = 'none';
     }
 
     // Top clients
@@ -1404,6 +1458,7 @@
           <div style="display:flex; gap:12px; font-size:11px; color:var(--text-dim);">
             <span>&#8595; ${c.down_mbps}</span>
             <span>&#8593; ${c.up_mbps}</span>
+            <span style="margin-left:auto;">${c.is_wired ? 'Wired' : 'WiFi'}</span>
           </div>
         </div>
       `).join('');
