@@ -627,7 +627,7 @@
         </div>
         <div class="metric">
           <div class="metric-val" style="font-size:28px;" id="libMusic">--</div>
-          <div class="metric-label">Artists</div>
+          <div class="metric-label">Albums</div>
         </div>
       </div>
       <div style="display:flex; gap:16px; margin-top:12px; justify-content:center;">
@@ -1027,7 +1027,7 @@
         document.getElementById('libShowsSize').textContent = (libs.shows.size_gb / 1024).toFixed(1) + ' TB shows';
       }
       if (libs.music) {
-        document.getElementById('libMusic').textContent = libs.music.count;
+        document.getElementById('libMusic').textContent = libs.music.child_count || libs.music.count;
       }
       const totalGb = (libs.movies ? libs.movies.size_gb : 0) + (libs.shows ? libs.shows.size_gb : 0);
       document.getElementById('libTotalSize').textContent = (totalGb / 1024).toFixed(1) + ' TB total';
