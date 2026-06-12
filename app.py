@@ -2,7 +2,7 @@ import os
 from flask import Flask, jsonify, send_from_directory
 from cache import cache
 from config import Config
-from collectors import system, media, ups, network
+from collectors import system, media, ups, network, unraid
 
 app = Flask(__name__, static_folder="static")
 
@@ -20,6 +20,7 @@ def health():
 @app.route("/api/system")
 def api_system():
     data = cache.get("system", Config.CACHE_TTL_SYSTEM, system.collect)
+    data["unraid"] = cache.get("unraid", Config.CACHE_TTL_UNRAID, unraid.collect)
     return jsonify(data)
 
 
@@ -43,8 +44,10 @@ def api_network():
 
 @app.route("/api/all")
 def api_all():
+    sys_data = cache.get("system", Config.CACHE_TTL_SYSTEM, system.collect)
+    sys_data["unraid"] = cache.get("unraid", Config.CACHE_TTL_UNRAID, unraid.collect)
     return jsonify({
-        "system": cache.get("system", Config.CACHE_TTL_SYSTEM, system.collect),
+        "system": sys_data,
         "media": cache.get("media", Config.CACHE_TTL_MEDIA, media.collect),
         "ups": cache.get("ups", Config.CACHE_TTL_UPS, ups.collect),
         "network": cache.get("network", Config.CACHE_TTL_NETWORK, network.collect),

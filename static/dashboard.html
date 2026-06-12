@@ -176,6 +176,7 @@
   .bar-fill.green { background: var(--green); box-shadow: 0 0 8px var(--green-glow); }
   .bar-fill.amber { background: var(--amber); box-shadow: 0 0 8px var(--amber-glow); }
   .bar-fill.red { background: var(--red); box-shadow: 0 0 8px var(--red-glow); }
+  .bar-fill.blue { background: var(--blue); box-shadow: 0 0 8px rgba(10, 132, 255, 0.15); }
 
   /* Gauge (circular arc for CPU) */
   .gauge-wrap {
@@ -577,6 +578,37 @@
       </div>
       <div class="panel-title">System</div>
       <div class="panel-subtitle" id="sysSubtitle">M1dKNAS</div>
+    </div>
+
+    <div class="card" id="unraidCard" style="display:none;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <div id="arrayBadge" class="status-badge good">
+          <span class="chip-dot" style="background:currentColor; margin-right:6px;"></span>
+          <span id="arrayStatusText">--</span>
+        </div>
+        <span style="font-size:12px; color:var(--text-dim); font-variant-numeric:tabular-nums;" id="arrayDiskCount">-- disks</span>
+      </div>
+      <div id="paritySection" style="display:none; margin-bottom:12px;">
+        <div class="card-label" style="margin-bottom:6px;">Parity Check</div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+          <span style="font-size:13px; color:var(--text-secondary); font-variant-numeric:tabular-nums;" id="parityPct">--%</span>
+          <span style="font-size:12px; color:var(--text-dim);" id="parityEta">ETA: --</span>
+        </div>
+        <div class="bar-track" style="height:8px; border-radius:4px;">
+          <div class="bar-fill blue" id="parityBar" style="width:0%; border-radius:4px;"></div>
+        </div>
+        <div style="display:flex; gap:16px; margin-top:6px;">
+          <span style="font-size:11px; color:var(--text-dim);">Speed: <span id="paritySpeed">--</span></span>
+          <span style="font-size:11px; color:var(--text-dim);">Errors: <span id="parityErrors">0</span></span>
+        </div>
+      </div>
+      <div id="dockerSection" style="display:none;">
+        <div class="card-label" style="margin-bottom:6px;">Docker</div>
+        <div class="chip-row">
+          <span class="chip" id="dockerSummaryChip">-- / -- running</span>
+          <span class="chip" id="dockerProblemChip" style="display:none; background:rgba(255,149,0,0.12); color:var(--amber);"></span>
+        </div>
+      </div>
     </div>
 
     <div class="card">
@@ -1045,15 +1077,19 @@
       totalBar.style.width = totalPct + '%';
       totalBar.className = 'bar-fill ' + stateColor(totalPct);
 
-      diskList.innerHTML = d.disks.map(disk => `
-        <div class="disk-item">
-          <span class="disk-name">${disk.name}</span>
-          <div class="bar-track">
-            <div class="bar-fill ${stateColor(disk.percent)}" style="width:${disk.percent}%"></div>
-          </div>
-          <span class="disk-pct" style="color:${stateColorVar(disk.percent)}">${Math.round(disk.percent)}%</span>
-        </div>
-      `).join('');
+      const unraidDisks = (d.unraid && d.unraid.array && d.unraid.array.disks) || [];
+      diskList.innerHTML = d.disks.map(disk => {
+        const ud = unraidDisks.find(u => matchDiskName(u.name, disk.name));
+        const dot = ud ? `<span class="chip-dot" style="background:${diskDotColor(ud.state)}; margin-right:4px;"></span>` : '';
+        return `
+          <div class="disk-item">
+            <span class="disk-name">${dot}${disk.name}</span>
+            <div class="bar-track">
+              <div class="bar-fill ${stateColor(disk.percent)}" style="width:${disk.percent}%"></div>
+            </div>
+            <span class="disk-pct" style="color:${stateColorVar(disk.percent)}">${Math.round(disk.percent)}%</span>
+          </div>`;
+      }).join('');
     }
 
     // Temperatures
@@ -1069,6 +1105,82 @@
         `<div class="chip"><span class="chip-dot" style="background:var(--blue)"></span>${f.label}: ${f.rpm} RPM</div>`
       ).join('');
       tempChips.innerHTML = html;
+    }
+
+    updateUnraid(d.unraid);
+  }
+
+  function matchDiskName(unraidName, glancesLabel) {
+    const a = (unraidName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const b = glancesLabel.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return a === b || b.includes(a) || a.includes(b);
+  }
+
+  function diskDotColor(state) {
+    switch (state) {
+      case 'standby': return 'var(--blue)';
+      case 'disabled': return 'var(--red)';
+      case 'missing': return 'var(--red)';
+      default: return 'var(--green)';
+    }
+  }
+
+  function updateUnraid(u) {
+    const card = document.getElementById('unraidCard');
+    if (!u || (!u.array && !u.docker)) {
+      card.style.display = 'none';
+      return;
+    }
+    card.style.display = '';
+
+    if (u.array) {
+      const badge = document.getElementById('arrayBadge');
+      let health = 'good';
+      let text = 'Array Started';
+
+      if (!u.array.started) {
+        health = 'critical';
+        text = 'Array Stopped';
+      } else if (!u.array.healthy) {
+        health = 'warning';
+        text = u.array.problem_count + ' disk problem' + (u.array.problem_count > 1 ? 's' : '');
+      } else {
+        text = 'All ' + u.array.disk_count + ' disks healthy';
+      }
+
+      badge.className = 'status-badge ' + health;
+      document.getElementById('arrayStatusText').textContent = text;
+      document.getElementById('arrayDiskCount').textContent = u.array.started ? u.array.disk_count + ' disks' : 'Stopped';
+    }
+
+    const paritySection = document.getElementById('paritySection');
+    if (u.parity && u.parity.running) {
+      paritySection.style.display = '';
+      document.getElementById('parityPct').textContent = u.parity.progress.toFixed(1) + '%';
+      document.getElementById('parityBar').style.width = u.parity.progress + '%';
+      document.getElementById('parityEta').textContent = u.parity.eta ? 'ETA: ' + u.parity.eta : '';
+      document.getElementById('paritySpeed').textContent = u.parity.speed || '--';
+      const errEl = document.getElementById('parityErrors');
+      errEl.textContent = u.parity.errors || '0';
+      errEl.style.color = u.parity.errors > 0 ? 'var(--red)' : 'var(--text-dim)';
+    } else {
+      paritySection.style.display = 'none';
+    }
+
+    const dockerSection = document.getElementById('dockerSection');
+    if (u.docker) {
+      dockerSection.style.display = '';
+      document.getElementById('dockerSummaryChip').textContent = u.docker.running + ' / ' + u.docker.total + ' running';
+      const problemChip = document.getElementById('dockerProblemChip');
+      if (u.docker.problem_count > 0) {
+        problemChip.style.display = '';
+        const names = u.docker.problems.slice(0, 3).join(', ');
+        problemChip.textContent = '⚠ ' + names + (u.docker.problem_count > 3 ? '...' : '');
+      } else {
+        problemChip.style.display = 'none';
+      }
+    } else {
+      dockerSection.style.display = 'none';
     }
   }
 

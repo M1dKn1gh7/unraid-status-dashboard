@@ -30,7 +30,11 @@ class Config:
     UNIFI_SITE = os.environ.get("UNIFI_SITE", "default")
     WAN_SPEED_MBPS = int(os.environ.get("WAN_SPEED_MBPS", "900"))
 
+    UNRAID_API_URL = os.environ.get("UNRAID_API_URL", "")
+    UNRAID_API_KEY = os.environ.get("UNRAID_API_KEY", "")
+
     CACHE_TTL_SYSTEM = int(os.environ.get("CACHE_TTL_SYSTEM", "10"))
     CACHE_TTL_MEDIA = int(os.environ.get("CACHE_TTL_MEDIA", "15"))
     CACHE_TTL_UPS = int(os.environ.get("CACHE_TTL_UPS", "10"))
     CACHE_TTL_NETWORK = int(os.environ.get("CACHE_TTL_NETWORK", "30"))
+    CACHE_TTL_UNRAID = int(os.environ.get("CACHE_TTL_UNRAID", "30"))
