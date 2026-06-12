@@ -588,6 +588,9 @@
         </div>
         <span style="font-size:12px; color:var(--text-dim); font-variant-numeric:tabular-nums;" id="arrayDiskCount">-- disks</span>
       </div>
+      <div id="smartSection" style="display:none; margin-bottom:12px;">
+        <div class="chip-row" id="smartChips"></div>
+      </div>
       <div id="paritySection" style="display:none; margin-bottom:12px;">
         <div class="card-label" style="margin-bottom:6px;">Parity Check</div>
         <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
@@ -1080,7 +1083,7 @@
       const unraidDisks = (d.unraid && d.unraid.array && d.unraid.array.disks) || [];
       diskList.innerHTML = d.disks.map(disk => {
         const ud = unraidDisks.find(u => matchDiskName(u.name, disk.name));
-        const dot = ud ? `<span class="chip-dot" style="background:${diskDotColor(ud.state)}; margin-right:4px;"></span>` : '';
+        const dot = ud ? `<span class="chip-dot" style="background:${diskDotColor(ud)}; margin-right:4px;" title="${diskDotTitle(ud)}"></span>` : '';
         return `
           <div class="disk-item">
             <span class="disk-name">${dot}${disk.name}</span>
@@ -1116,13 +1119,19 @@
     return a === b || b.includes(a) || a.includes(b);
   }
 
-  function diskDotColor(state) {
-    switch (state) {
-      case 'standby': return 'var(--blue)';
-      case 'disabled': return 'var(--red)';
-      case 'missing': return 'var(--red)';
-      default: return 'var(--green)';
-    }
+  function diskDotColor(disk) {
+    if (disk.smart && disk.smart !== 'OK' && disk.smart !== 'UNKNOWN') return 'var(--amber)';
+    if (disk.state === 'disabled' || disk.state === 'missing') return 'var(--red)';
+    if (!disk.spinning) return 'var(--blue)';
+    return 'var(--green)';
+  }
+
+  function diskDotTitle(disk) {
+    if (disk.smart && disk.smart !== 'OK' && disk.smart !== 'UNKNOWN') return 'SMART: ' + disk.smart;
+    if (disk.state === 'disabled') return 'Disabled';
+    if (disk.state === 'missing') return 'Missing';
+    if (!disk.spinning) return 'Spun down';
+    return 'Active';
   }
 
   function updateUnraid(u) {
@@ -1133,32 +1142,64 @@
     }
     card.style.display = '';
 
+    if (u.system) {
+      const sub = document.getElementById('sysSubtitle');
+      let subtitle = u.system.hostname || 'Unraid';
+      if (u.system.uptime_days !== null) {
+        subtitle += ' · Up ' + u.system.uptime_days + 'd';
+      }
+      if (u.system.version) {
+        subtitle += ' · v' + u.system.version;
+      }
+      sub.textContent = subtitle;
+    }
+
     if (u.array) {
       const badge = document.getElementById('arrayBadge');
       let health = 'good';
       let text = 'Array Started';
+      const totalDisks = u.array.disk_count + u.array.parity_count + u.array.cache_count;
 
       if (!u.array.started) {
         health = 'critical';
         text = 'Array Stopped';
       } else if (!u.array.healthy) {
-        health = 'warning';
-        text = u.array.problem_count + ' disk problem' + (u.array.problem_count > 1 ? 's' : '');
+        const issues = [];
+        if (u.array.problem_count > 0) issues.push(u.array.problem_count + ' disk fault' + (u.array.problem_count > 1 ? 's' : ''));
+        if (u.array.smart_issues > 0) issues.push(u.array.smart_issues + ' SMART warning' + (u.array.smart_issues > 1 ? 's' : ''));
+        health = u.array.problem_count > 0 ? 'critical' : 'warning';
+        text = issues.join(', ');
       } else {
-        text = 'All ' + u.array.disk_count + ' disks healthy';
+        text = 'All ' + totalDisks + ' disks healthy';
       }
 
       badge.className = 'status-badge ' + health;
       document.getElementById('arrayStatusText').textContent = text;
-      document.getElementById('arrayDiskCount').textContent = u.array.started ? u.array.disk_count + ' disks' : 'Stopped';
+      document.getElementById('arrayDiskCount').textContent = u.array.started
+        ? u.array.disk_count + ' data · ' + u.array.parity_count + ' parity · ' + u.array.cache_count + ' cache'
+        : 'Stopped';
+
+      const smartSection = document.getElementById('smartSection');
+      const smartChips = document.getElementById('smartChips');
+      const disksWithTemps = u.array.disks.filter(d => d.temp_c !== null);
+      if (disksWithTemps.length > 0) {
+        smartSection.style.display = '';
+        smartChips.innerHTML = u.array.disks.filter(d => d.temp_c !== null).map(d => {
+          const c = d.temp_c > 55 ? 'var(--red)' : d.temp_c > 45 ? 'var(--amber)' : 'var(--green)';
+          const label = d.type === 'PARITY' ? 'Parity' : d.type === 'CACHE' ? 'Cache' : d.name;
+          return `<div class="chip"><span class="chip-dot" style="background:${c}"></span>${label}: ${d.temp_c}°C</div>`;
+        }).join('');
+      } else {
+        smartSection.style.display = 'none';
+      }
     }
 
     const paritySection = document.getElementById('paritySection');
     if (u.parity && u.parity.running) {
       paritySection.style.display = '';
-      document.getElementById('parityPct').textContent = u.parity.progress.toFixed(1) + '%';
+      document.getElementById('parityPct').textContent = u.parity.progress + '%';
       document.getElementById('parityBar').style.width = u.parity.progress + '%';
-      document.getElementById('parityEta').textContent = u.parity.eta ? 'ETA: ' + u.parity.eta : '';
+      document.getElementById('parityEta').textContent = '';
       document.getElementById('paritySpeed').textContent = u.parity.speed || '--';
       const errEl = document.getElementById('parityErrors');
       errEl.textContent = u.parity.errors || '0';
