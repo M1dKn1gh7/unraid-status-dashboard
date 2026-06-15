@@ -126,7 +126,7 @@ unraid-status-dashboard/
   - Episode subtitle: "S04 E06 · Episode Title" (episodes only)
   - Progress bar with elapsed time (left) and remaining time (right)
   - Quality (720P, 1080P, 4K) + network location (Local / Remote)
-- **Downloads:** global speed (Mbps), active count, pending Overseerr requests, top torrents with progress + ETA
+- **Downloads:** global speed (Mbps), active/seeding/completed counts, pending Overseerr requests, top torrents with progress + ETA
 
 **Tautulli stream fields:** `friendly_name` (user), `full_title`/`title`/`grandparent_title` (naming), `parent_media_index`/`media_index` (season/episode), `view_offset`/`duration` (position ms), `video_decision` (direct play/copy/transcode), `stream_video_resolution`/`video_resolution` (quality), `location` (lan/wan), `grandparent_thumb`/`thumb` (poster path).
 

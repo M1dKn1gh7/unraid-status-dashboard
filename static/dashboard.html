@@ -783,6 +783,14 @@
           <div class="metric-label">Active</div>
         </div>
         <div class="metric">
+          <div class="metric-val" id="dlSeeding">--</div>
+          <div class="metric-label">Seeding</div>
+        </div>
+        <div class="metric">
+          <div class="metric-val" id="dlCompleted">--</div>
+          <div class="metric-label">Completed</div>
+        </div>
+        <div class="metric">
           <div class="metric-val" id="reqPending">--</div>
           <div class="metric-label">Requests</div>
         </div>
@@ -1411,6 +1419,8 @@
     if (d.downloads) {
       document.getElementById('dlSpeed').textContent = d.downloads.speed_mbps || '0';
       document.getElementById('dlActive').textContent = d.downloads.active_count || '0';
+      document.getElementById('dlSeeding').textContent = d.downloads.seeding_count || '0';
+      document.getElementById('dlCompleted').textContent = d.downloads.completed_count || '0';
 
       const dlList = document.getElementById('downloadList');
       if (d.downloads.active && d.downloads.active.length > 0) {

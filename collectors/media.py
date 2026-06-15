@@ -84,6 +84,20 @@ def _fetch_qbittorrent():
         torrents_r.raise_for_status()
         torrents = torrents_r.json()
 
+        seeding_r = session.get(
+            f"{Config.QBIT_URL}/api/v2/torrents/info",
+            params={"filter": "seeding"},
+            timeout=TIMEOUT,
+        )
+        seeding_count = len(seeding_r.json()) if seeding_r.status_code == 200 else 0
+
+        completed_r = session.get(
+            f"{Config.QBIT_URL}/api/v2/torrents/info",
+            params={"filter": "completed"},
+            timeout=TIMEOUT,
+        )
+        completed_count = len(completed_r.json()) if completed_r.status_code == 200 else 0
+
         active = []
         for t in torrents[:5]:
             eta = t.get("eta", 0)
@@ -99,6 +113,8 @@ def _fetch_qbittorrent():
             "speed_mbps": round(transfer.get("dl_info_speed", 0) / (1024**2), 1),
             "upload_mbps": round(transfer.get("up_info_speed", 0) / (1024**2), 1),
             "active_count": len(torrents),
+            "seeding_count": seeding_count,
+            "completed_count": completed_count,
             "active": active,
         }
     except Exception:
