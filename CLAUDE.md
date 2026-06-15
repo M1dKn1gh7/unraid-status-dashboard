@@ -26,6 +26,7 @@ A self-contained Docker container that displays real-time Unraid server status o
 │     GET /api/ups    → HA REST API for NUT (cached 10s)       │
 │     GET /api/network→ UniFi UDM SE (cached 30s)              │
 │     GET /api/all    → all four combined (frontend polls this)│
+│     GET /api/img    → proxy Tautulli poster images            │
 │     GET /api/health → healthcheck                            │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -118,8 +119,18 @@ unraid-status-dashboard/
   - Shows: count from Sonarr + episode count + storage in TB
   - Music: track count (large) from Tautulli, with "X artists · Y albums" subtitle
   - Total media storage chip
-- **Active Streams:** from Tautulli `get_activity` — user, title, progress bar, state
+- **Now Playing:** from Tautulli `get_activity` — stream count chip, per-stream cards with:
+  - Poster thumbnail (proxied via `/api/img` → Tautulli `pms_image_proxy`)
+  - Username + playback decision badge (Direct Play = green, Direct Stream = blue, Transcode = amber)
+  - Show name / movie title as heading
+  - Episode subtitle: "S04 E06 · Episode Title" (episodes only)
+  - Progress bar with elapsed time (left) and remaining time (right)
+  - Quality (720P, 1080P, 4K) + network location (Local / Remote)
 - **Downloads:** global speed (Mbps), active count, pending Overseerr requests, top torrents with progress + ETA
+
+**Tautulli stream fields:** `friendly_name` (user), `full_title`/`title`/`grandparent_title` (naming), `parent_media_index`/`media_index` (season/episode), `view_offset`/`duration` (position ms), `video_decision` (direct play/copy/transcode), `stream_video_resolution`/`video_resolution` (quality), `location` (lan/wan), `grandparent_thumb`/`thumb` (poster path).
+
+**Tautulli image proxy:** `/api/img?path=<thumb_path>` → proxies to Tautulli `pms_image_proxy` cmd, returns 120×180 JPEG. Avoids exposing API key to frontend.
 
 **Tautulli music fields:** `count` = artists, `parent_count` = albums, `child_count` = tracks.
 
