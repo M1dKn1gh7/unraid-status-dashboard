@@ -50,7 +50,7 @@ def _fetch_tautulli():
                 "quality": s.get("stream_video_resolution") or s.get("video_resolution", ""),
                 "location": s.get("location", ""),
                 "player": s.get("player", ""),
-                "thumb": s.get("grandparent_thumb") or s.get("thumb", ""),
+                "thumb": s.get("parent_thumb") or s.get("thumb", "") if s.get("media_type") == "track" else s.get("grandparent_thumb") or s.get("thumb", ""),
                 "user_thumb": s.get("user_thumb", ""),  # add this line
             })
 
