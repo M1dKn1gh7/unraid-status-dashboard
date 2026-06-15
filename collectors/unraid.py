@@ -43,12 +43,11 @@ def collect():
     array_data = data.get("array")
     disks_detail = data.get("disks", [])
 
-    parity = _parse_parity(array_data.get("parityCheckStatus") if array_data else None)
-
-    if not parity or not parity.get("running"):
-        varini_parity = _fetch_parity_from_varini()
-        if varini_parity:
-            parity = varini_parity
+    varini_parity = _fetch_parity_from_varini()
+    if varini_parity:
+        parity = varini_parity
+    else:
+        parity = _parse_parity(array_data.get("parityCheckStatus") if array_data else None)
 
     return {
         "array": _parse_array(array_data, disks_detail),
