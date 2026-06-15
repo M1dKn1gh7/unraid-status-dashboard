@@ -108,6 +108,8 @@ unraid-status-dashboard/
 
 **Unraid GraphQL query:** Fetches array state + capacity, disk/parity/cache status, parity check progress, Docker containers (names, state, autoStart), disk SMART/temp/spinning, and system info (hostname, uptime, Unraid version).
 
+**Parity check data (var.ini fallback):** The Unraid Connect GraphQL `parityCheckStatus` field is unreliable for in-progress checks (often returns stale "COMPLETED"). As a fallback, the collector reads `/var/local/emhttp/var.ini` (mounted read-only into the container at `/host/var.ini`). Key fields: `mdResyncPos` (current position KB), `mdResyncSize` (total KB), `mdResyncDb`/`mdResyncDt` (speed = Db/Dt/1024 MB/s), `mdResyncCorr` (errors). If `mdResyncPos > 0`, parity is running.
+
 ### 2. Media (`collectors/media.py`)
 **Sources:** Tautulli `:8181`, qBittorrent `:8080` (via gluetun), Overseerr `:5055`, Radarr `:7878`, Sonarr `:8989`
 
@@ -324,6 +326,7 @@ All config via environment variables. See `.env.example` for full list.
 | `WAN_SPEED_MBPS` | `900` | No | Line speed for utilisation % calc |
 | `UNRAID_API_URL` | — | No | Unraid GraphQL endpoint (e.g. `https://192.168.1.200:9443/graphql`) |
 | `UNRAID_API_KEY` | — | No | Unraid API key (Connect plugin) |
+| `UNRAID_VAR_INI` | `/host/var.ini` | No | Path to mounted var.ini (parity check fallback) |
 | `CACHE_TTL_SYSTEM` | `10` | No | Seconds |
 | `CACHE_TTL_MEDIA` | `15` | No | Seconds |
 | `CACHE_TTL_UPS` | `10` | No | Seconds |
@@ -341,7 +344,7 @@ cp .env.example .env
 nano .env  # fill in API keys
 
 docker build -t status-dashboard .
-docker run -d --name=status-dashboard --net=docker-media-network --env-file=/mnt/user/appdata/status-dashboard/.env -e TZ=Europe/London -p 9090:9090 --restart=unless-stopped status-dashboard
+docker run -d --name=status-dashboard --net=docker-media-network --env-file=/mnt/user/appdata/status-dashboard/.env -e TZ=Europe/London -p 9090:9090 -v /var/local/emhttp/var.ini:/host/var.ini:ro --restart=unless-stopped status-dashboard
 ```
 
 ### Update workflow
@@ -350,7 +353,7 @@ docker run -d --name=status-dashboard --net=docker-media-network --env-file=/mnt
 cd /mnt/user/appdata/status-dashboard && git pull
 docker stop status-dashboard && docker rm status-dashboard
 docker build -t status-dashboard .
-docker run -d --name=status-dashboard --net=docker-media-network --env-file=/mnt/user/appdata/status-dashboard/.env -e TZ=Europe/London -p 9090:9090 --restart=unless-stopped status-dashboard
+docker run -d --name=status-dashboard --net=docker-media-network --env-file=/mnt/user/appdata/status-dashboard/.env -e TZ=Europe/London -p 9090:9090 -v /var/local/emhttp/var.ini:/host/var.ini:ro --restart=unless-stopped status-dashboard
 ```
 
 ### Unraid Docker icon
@@ -398,6 +401,7 @@ Container joins `docker-media-network` (172.18.0.0/16). Can reach other containe
 - **Tautulli bandwidth** — reported in kbps by the API, divided by 1000 for Mbps display
 - **HA entity names** — depend on NUT integration config. If renamed in HA, update the `ENTITIES` list in `collectors/ups.py`
 - **Unraid GraphQL** — requires the Unraid Connect plugin. If `UNRAID_API_URL` / `UNRAID_API_KEY` are not set, the Unraid card is hidden gracefully. Self-signed cert: `verify=False`
+- **Unraid parity check** — the GraphQL `parityCheckStatus` field is unreliable for in-progress checks on Unraid 7.x (returns stale "COMPLETED"). The var.ini file mount (`-v /var/local/emhttp/var.ini:/host/var.ini:ro`) provides a reliable fallback. If the file isn't mounted, only GraphQL data is used
 - **Unraid disk matching** — Unraid disk names (e.g. "Disk 1") are matched to Glances mount labels via normalised lowercase alphanumeric comparison
 
 ## Styling Guide for Other Projects

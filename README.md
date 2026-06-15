@@ -28,13 +28,7 @@ cp .env.example .env
 nano .env  # Fill in your API keys
 
 docker build -t status-dashboard .
-docker run -d --name=status-dashboard \
-  --net=docker-media-network \
-  --env-file=/mnt/user/appdata/status-dashboard/.env \
-  -e TZ=Europe/London \
-  -p 9090:9090 \
-  --restart=unless-stopped \
-  status-dashboard
+docker run -d --name=status-dashboard --net=docker-media-network --env-file=/mnt/user/appdata/status-dashboard/.env -e TZ=Europe/London -p 9090:9090 -v /var/local/emhttp/var.ini:/host/var.ini:ro --restart=unless-stopped status-dashboard
 ```
 
 Dashboard available at `http://<your-unraid-ip>:9090`
@@ -71,6 +65,7 @@ Dashboard available at `http://<your-unraid-ip>:9090`
 | `WAN_SPEED_MBPS` | `900` | Your line speed (for utilisation % calculation) |
 | `UNRAID_API_URL` | *(empty)* | Unraid GraphQL endpoint (e.g. `http://192.168.1.200/graphql`) |
 | `UNRAID_API_KEY` | *(empty)* | Unraid API key (Settings > Management Access > API Keys) |
+| `UNRAID_VAR_INI` | `/host/var.ini` | Path to mounted var.ini (parity check fallback) |
 | `CACHE_TTL_SYSTEM` | `10` | Glances cache TTL (seconds) |
 | `CACHE_TTL_MEDIA` | `15` | Media cache TTL |
 | `CACHE_TTL_UPS` | `10` | UPS cache TTL |
@@ -85,6 +80,12 @@ Setup:
 1. Unraid WebUI > Settings > Management Access > API Keys
 2. Create a new key (read-only is sufficient)
 3. Set `UNRAID_API_URL=http://192.168.1.200/graphql` and `UNRAID_API_KEY=<your-key>` in `.env`
+
+### Parity Check Status (Volume Mount)
+
+The GraphQL API's `parityCheckStatus` field can be unreliable for in-progress checks on Unraid 7.x. As a fallback, the container reads Unraid's `/var/local/emhttp/var.ini` directly (mounted read-only). This provides real-time parity check progress, speed, and error count.
+
+The `-v /var/local/emhttp/var.ini:/host/var.ini:ro` flag in the docker run command enables this. If the mount is missing, only GraphQL data is used (no error).
 
 ## Architecture
 
@@ -110,7 +111,7 @@ Frontend (single HTML file, zero build step)
 cd /mnt/user/appdata/status-dashboard && git pull
 docker stop status-dashboard && docker rm status-dashboard
 docker build -t status-dashboard .
-docker run -d --name=status-dashboard --net=docker-media-network --env-file=/mnt/user/appdata/status-dashboard/.env -e TZ=Europe/London -p 9090:9090 --restart=unless-stopped status-dashboard
+docker run -d --name=status-dashboard --net=docker-media-network --env-file=/mnt/user/appdata/status-dashboard/.env -e TZ=Europe/London -p 9090:9090 -v /var/local/emhttp/var.ini:/host/var.ini:ro --restart=unless-stopped status-dashboard
 ```
 
 ## Network Notes
