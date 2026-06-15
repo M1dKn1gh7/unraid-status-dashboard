@@ -75,18 +75,17 @@ def _fetch_parity_from_varini():
             key, _, value = line.partition("=")
             vals[key.strip()] = value.strip().strip('"')
 
-    resync_pos = vals.get("mdResyncPos", "0")
-    resync_size = vals.get("mdResyncSize", "0")
-
     try:
-        pos = int(resync_pos)
-        size = int(resync_size)
+        pos = int(vals.get("mdResyncPos", "0"))
+        size = int(vals.get("mdResyncSize", "0"))
+        resync = int(vals.get("mdResync", "0"))
     except (ValueError, TypeError):
         return None
 
     if pos == 0 or size == 0:
         return None
 
+    paused = resync == 0 and pos > 0
     progress = round((pos / size) * 100, 1)
 
     speed_mb = None
@@ -106,12 +105,12 @@ def _fetch_parity_from_varini():
 
     return {
         "running": True,
-        "status": "RUNNING",
+        "status": "PAUSED" if paused else "RUNNING",
         "progress": progress,
         "speed": f"{speed_mb} MB/s" if speed_mb else None,
         "errors": errors,
         "duration": None,
-        "paused": False,
+        "paused": paused,
     }
 
 

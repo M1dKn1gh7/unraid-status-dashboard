@@ -592,10 +592,13 @@
         <div class="chip-row" id="smartChips"></div>
       </div>
       <div id="paritySection" style="display:none; margin-bottom:12px;">
-        <div class="card-label" style="margin-bottom:6px;">Parity Check</div>
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+          <span class="card-label" style="margin:0;">Parity Check</span>
+          <span class="status-badge good" id="parityBadge" style="font-size:10px; padding:3px 10px;">Running</span>
+        </div>
         <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
           <span style="font-size:13px; color:var(--text-secondary); font-variant-numeric:tabular-nums;" id="parityPct">--%</span>
-          <span style="font-size:12px; color:var(--text-dim);" id="parityEta">ETA: --</span>
+          <span style="font-size:12px; color:var(--text-dim);" id="parityEta"></span>
         </div>
         <div class="bar-track" style="height:8px; border-radius:4px;">
           <div class="bar-fill blue" id="parityBar" style="width:0%; border-radius:4px;"></div>
@@ -1202,6 +1205,25 @@
       const errEl = document.getElementById('parityErrors');
       errEl.textContent = u.parity.errors || '0';
       errEl.style.color = u.parity.errors > 0 ? 'var(--red)' : 'var(--text-dim)';
+      const badge = document.getElementById('parityBadge');
+      if (u.parity.errors > 0) {
+        badge.textContent = u.parity.errors + ' Error' + (u.parity.errors > 1 ? 's' : '');
+        badge.className = 'status-badge critical';
+      } else if (u.parity.paused) {
+        badge.textContent = 'Paused';
+        badge.className = 'status-badge warning';
+      } else {
+        badge.textContent = 'Running';
+        badge.className = 'status-badge good';
+      }
+      const barFill = document.getElementById('parityBar');
+      if (u.parity.paused) {
+        barFill.className = 'bar-fill amber';
+      } else if (u.parity.errors > 0) {
+        barFill.className = 'bar-fill red';
+      } else {
+        barFill.className = 'bar-fill blue';
+      }
     } else {
       paritySection.style.display = 'none';
     }
