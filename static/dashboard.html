@@ -1426,12 +1426,14 @@
       if (d.downloads.active && d.downloads.active.length > 0) {
         dlList.innerHTML = d.downloads.active.slice(0, 3).map(dl => `
           <div class="stream-item">
-            <div class="stream-top">
-              <span class="stream-title" style="flex:1">${dl.name}</span>
-              <span style="font-size:11px; color:var(--text-secondary); font-variant-numeric:tabular-nums;">${dl.eta}</span>
-            </div>
-            <div class="stream-progress">
-              <div class="stream-progress-fill" style="width:${dl.progress}%; background:var(--green);"></div>
+            <div class="stream-info">
+              <div class="stream-top">
+                <span class="stream-title" style="flex:1">${dl.name}</span>
+                <span style="font-size:11px; color:var(--text-secondary); font-variant-numeric:tabular-nums;">${dl.progress}% · ${dl.eta}</span>
+              </div>
+              <div class="stream-progress">
+                <div class="stream-progress-fill" style="width:${dl.progress}%; background:var(--green);"></div>
+              </div>
             </div>
           </div>
         `).join('');
