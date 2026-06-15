@@ -36,9 +36,21 @@ def _fetch_tautulli():
             items.append({
                 "user": s.get("friendly_name", "Unknown"),
                 "title": s.get("full_title", s.get("title", "Unknown")),
+                "episode_title": s.get("title", ""),
+                "media_type": s.get("media_type", ""),
+                "grandparent_title": s.get("grandparent_title", ""),
+                "season": s.get("parent_media_index"),
+                "episode": s.get("media_index"),
                 "progress": int(s.get("progress_percent", 0)),
-                "quality": s.get("quality_profile", ""),
+                "view_offset_ms": int(s.get("view_offset", 0)),
+                "duration_ms": int(s.get("duration", 0)),
                 "state": s.get("state", ""),
+                "video_decision": s.get("video_decision", ""),
+                "audio_decision": s.get("audio_decision", ""),
+                "quality": s.get("stream_video_resolution") or s.get("video_resolution", ""),
+                "location": s.get("location", ""),
+                "player": s.get("player", ""),
+                "thumb": s.get("grandparent_thumb") or s.get("thumb", ""),
             })
 
         return {

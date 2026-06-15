@@ -1,5 +1,6 @@
 import os
-from flask import Flask, jsonify, send_from_directory
+import requests as req
+from flask import Flask, jsonify, send_from_directory, request, Response, abort
 from cache import cache
 from config import Config
 from collectors import system, media, ups, network, unraid
@@ -40,6 +41,29 @@ def api_ups():
 def api_network():
     data = cache.get("network", Config.CACHE_TTL_NETWORK, network.collect)
     return jsonify(data)
+
+
+@app.route("/api/img")
+def api_img():
+    img_path = request.args.get("path", "")
+    if not img_path or not Config.TAUTULLI_API_KEY:
+        abort(404)
+    try:
+        r = req.get(
+            f"{Config.TAUTULLI_URL}/api/v2",
+            params={
+                "apikey": Config.TAUTULLI_API_KEY,
+                "cmd": "pms_image_proxy",
+                "img": img_path,
+                "width": 120,
+                "height": 180,
+                "fallback": "poster",
+            },
+            timeout=5,
+        )
+        return Response(r.content, content_type=r.headers.get("content-type", "image/jpeg"))
+    except Exception:
+        abort(502)
 
 
 @app.route("/api/all")

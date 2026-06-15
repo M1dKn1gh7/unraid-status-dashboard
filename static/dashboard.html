@@ -288,11 +288,27 @@
 
   .stream-item {
     display: flex;
-    flex-direction: column;
-    gap: 6px;
+    gap: 12px;
     padding: 12px;
     background: var(--surface-raised);
     border-radius: 10px;
+  }
+
+  .stream-poster {
+    width: 50px;
+    height: 75px;
+    border-radius: 6px;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .stream-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
   }
 
   .stream-top {
@@ -307,17 +323,39 @@
     color: var(--text-primary);
   }
 
-  .stream-state {
+  .stream-decision {
+    display: flex;
+    align-items: center;
+    gap: 5px;
     font-size: 10px;
     font-weight: 500;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: var(--green);
   }
+  .stream-decision.direct-play { color: var(--green); }
+  .stream-decision.direct-stream { color: var(--blue); }
+  .stream-decision.transcode { color: var(--amber); }
+
+  .stream-decision-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+  }
+  .direct-play .stream-decision-dot { background: var(--green); }
+  .direct-stream .stream-decision-dot { background: var(--blue); }
+  .transcode .stream-decision-dot { background: var(--amber); }
 
   .stream-title {
     font-size: 12px;
     color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .stream-subtitle {
+    font-size: 11px;
+    color: var(--text-dim);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -328,12 +366,29 @@
     background: rgba(255, 255, 255, 0.06);
     border-radius: 2px;
     overflow: hidden;
+    margin-top: 2px;
   }
 
   .stream-progress-fill {
     height: 100%;
     background: var(--blue);
     border-radius: 2px;
+  }
+
+  .stream-time {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-dim);
+  }
+
+  .stream-meta {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-size: 10px;
+    color: var(--text-dim);
     transition: width 1s ease;
   }
 
@@ -706,8 +761,11 @@
     </div>
 
     <div class="card">
-      <div class="card-label">Active Streams</div>
-      <div class="stream-list" id="streamList">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span class="card-label">Now Playing</span>
+        <span class="chip" id="streamCount" style="font-size:10px; padding:3px 8px; display:none;"></span>
+      </div>
+      <div class="stream-list" id="streamList" style="margin-top:12px;">
         <div class="empty">No active streams</div>
       </div>
     </div>
@@ -1037,6 +1095,39 @@
     return 'var(--green)';
   }
 
+  function _formatTime(ms) {
+    if (!ms || ms < 0) return '0:00';
+    const totalSec = Math.floor(ms / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const sec = totalSec % 60;
+    if (h > 0) return h + ':' + String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+    return m + ':' + String(sec).padStart(2, '0');
+  }
+
+  function _streamDecision(s) {
+    const vd = (s.video_decision || '').toLowerCase();
+    if (vd === 'transcode') return { cls: 'transcode', label: 'Transcode' };
+    if (vd === 'copy') return { cls: 'direct-stream', label: 'Direct Stream' };
+    return { cls: 'direct-play', label: 'Direct Play' };
+  }
+
+  function _streamTitle(s) {
+    if (s.media_type === 'episode' && s.grandparent_title) return s.grandparent_title;
+    return s.title;
+  }
+
+  function _streamSubtitle(s) {
+    if (s.media_type === 'episode') {
+      let ep = '';
+      if (s.season != null && s.episode != null) ep = 'S' + String(s.season).padStart(2, '0') + ' E' + String(s.episode).padStart(2, '0');
+      const epName = s.episode_title || '';
+      if (ep && epName) return ep + ' · ' + epName;
+      return ep || epName;
+    }
+    return '';
+  }
+
   function updateSystem(d) {
     if (!d || d._error) return;
 
@@ -1270,20 +1361,49 @@
 
     // Streams
     const streamList = document.getElementById('streamList');
+    const streamCount = document.getElementById('streamCount');
     if (d.streams && d.streams.count > 0) {
-      streamList.innerHTML = d.streams.items.map(s => `
+      streamCount.style.display = '';
+      streamCount.textContent = d.streams.count + ' stream' + (d.streams.count > 1 ? 's' : '');
+      streamList.innerHTML = d.streams.items.map(s => {
+        const decision = _streamDecision(s);
+        const title = _streamTitle(s);
+        const subtitle = _streamSubtitle(s);
+        const elapsed = _formatTime(s.view_offset_ms);
+        const remaining = s.duration_ms ? '-' + _formatTime(s.duration_ms - s.view_offset_ms) : '';
+        const quality = (s.quality || '').toUpperCase();
+        const loc = s.location === 'lan' ? 'Local' : s.location === 'wan' ? 'Remote' : '';
+        const thumbUrl = s.thumb ? '/api/img?path=' + encodeURIComponent(s.thumb) : '';
+        const poster = thumbUrl
+          ? `<img class="stream-poster" src="${thumbUrl}" alt="">`
+          : `<div class="stream-poster"></div>`;
+        return `
         <div class="stream-item">
-          <div class="stream-top">
-            <span class="stream-user">${s.user}</span>
-            <span class="stream-state">${s.state || 'playing'}</span>
+          ${poster}
+          <div class="stream-info">
+            <div class="stream-top">
+              <span class="stream-user">${s.user}</span>
+              <span class="stream-decision ${decision.cls}"><span class="stream-decision-dot"></span>${decision.label}</span>
+            </div>
+            <div class="stream-title">${title}</div>
+            ${subtitle ? `<div class="stream-subtitle">${subtitle}</div>` : ''}
+            <div class="stream-progress">
+              <div class="stream-progress-fill" style="width:${s.progress}%"></div>
+            </div>
+            <div class="stream-time">
+              <span>${elapsed}</span>
+              <span>${remaining}</span>
+            </div>
+            <div class="stream-meta">
+              ${quality ? `<span>${quality}</span>` : ''}
+              ${quality && loc ? '<span>·</span>' : ''}
+              ${loc ? `<span>${loc}</span>` : ''}
+            </div>
           </div>
-          <div class="stream-title">${s.title}</div>
-          <div class="stream-progress">
-            <div class="stream-progress-fill" style="width:${s.progress}%"></div>
-          </div>
-        </div>
-      `).join('');
+        </div>`;
+      }).join('');
     } else {
+      streamCount.style.display = 'none';
       streamList.innerHTML = '<div class="empty">No active streams</div>';
     }
 
