@@ -1,3 +1,4 @@
+import os
 import requests
 import urllib3
 from datetime import datetime, timezone
@@ -42,11 +43,75 @@ def collect():
     array_data = data.get("array")
     disks_detail = data.get("disks", [])
 
+    parity = _parse_parity(array_data.get("parityCheckStatus") if array_data else None)
+
+    if not parity or not parity.get("running"):
+        varini_parity = _fetch_parity_from_varini()
+        if varini_parity:
+            parity = varini_parity
+
     return {
         "array": _parse_array(array_data, disks_detail),
-        "parity": _parse_parity(array_data.get("parityCheckStatus") if array_data else None),
+        "parity": parity,
         "docker": _parse_docker(data.get("docker")),
         "system": _parse_system_info(data.get("info")),
+    }
+
+
+def _fetch_parity_from_varini():
+    path = Config.UNRAID_VAR_INI
+    if not path or not os.path.isfile(path):
+        return None
+
+    try:
+        with open(path, "r") as f:
+            content = f.read()
+    except OSError:
+        return None
+
+    vals = {}
+    for line in content.splitlines():
+        if "=" in line:
+            key, _, value = line.partition("=")
+            vals[key.strip()] = value.strip().strip('"')
+
+    resync_pos = vals.get("mdResyncPos", "0")
+    resync_size = vals.get("mdResyncSize", "0")
+
+    try:
+        pos = int(resync_pos)
+        size = int(resync_size)
+    except (ValueError, TypeError):
+        return None
+
+    if pos == 0 or size == 0:
+        return None
+
+    progress = round((pos / size) * 100, 1)
+
+    speed_mb = None
+    try:
+        db = int(vals.get("mdResyncDb", "0"))
+        dt = int(vals.get("mdResyncDt", "0"))
+        if dt > 0:
+            speed_mb = round(db / dt / 1024, 1)
+    except (ValueError, TypeError):
+        pass
+
+    errors = 0
+    try:
+        errors = int(vals.get("mdResyncCorr", "0"))
+    except (ValueError, TypeError):
+        pass
+
+    return {
+        "running": True,
+        "status": "RUNNING",
+        "progress": progress,
+        "speed": f"{speed_mb} MB/s" if speed_mb else None,
+        "errors": errors,
+        "duration": None,
+        "paused": False,
     }
 
 

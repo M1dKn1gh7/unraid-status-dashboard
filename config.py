@@ -32,6 +32,7 @@ class Config:
 
     UNRAID_API_URL = os.environ.get("UNRAID_API_URL", "")
     UNRAID_API_KEY = os.environ.get("UNRAID_API_KEY", "")
+    UNRAID_VAR_INI = os.environ.get("UNRAID_VAR_INI", "/host/var.ini")
 
     CACHE_TTL_SYSTEM = int(os.environ.get("CACHE_TTL_SYSTEM", "10"))
     CACHE_TTL_MEDIA = int(os.environ.get("CACHE_TTL_MEDIA", "15"))
