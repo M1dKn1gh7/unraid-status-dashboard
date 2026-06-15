@@ -109,7 +109,7 @@ unraid-status-dashboard/
 
 **Unraid GraphQL query:** Fetches array state + capacity, disk/parity/cache status, parity check progress, Docker containers (names, state, autoStart), disk SMART/temp/spinning, and system info (hostname, uptime, Unraid version).
 
-**Parity check data (var.ini fallback):** The Unraid Connect GraphQL `parityCheckStatus` field is unreliable for in-progress checks (often returns stale "COMPLETED"). As a fallback, the collector reads `/var/local/emhttp/var.ini` (mounted read-only into the container at `/host/var.ini`). Key fields: `mdResyncPos` (current position KB), `mdResyncSize` (total KB), `mdResyncDb`/`mdResyncDt` (speed = Db/Dt/1024 MB/s), `mdResyncCorr` (errors). If `mdResyncPos > 0`, parity is running.
+**Parity check data (var.ini fallback):** The Unraid Connect GraphQL `parityCheckStatus` field is unreliable for in-progress checks (often returns stale "COMPLETED"). As a fallback, the collector reads `/var/local/emhttp/var.ini` (mounted read-only into the container at `/host/var.ini`). Key fields: `mdResyncPos` (current position KB), `mdResyncSize` (total KB), `mdResyncDb`/`mdResyncDt` (speed = Db/Dt/1024 MB/s), `mdResyncCorr` (errors), `mdResync` (0 = paused, >0 = running). State detection: `mdResyncPos > 0 && mdResync > 0` = running, `mdResyncPos > 0 && mdResync == 0` = paused, `mdResyncPos == 0` = idle. Frontend shows status badge (green "Running", amber "Paused", red "N Errors") and bar colour changes to match.
 
 ### 2. Media (`collectors/media.py`)
 **Sources:** Tautulli `:8181`, qBittorrent `:8080` (via gluetun), Overseerr `:5055`, Radarr `:7878`, Sonarr `:8989`
