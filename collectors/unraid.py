@@ -134,7 +134,8 @@ def _parse_parity(parity_data):
     if not parity_data:
         return None
 
-    running = parity_data.get("running", False)
+    status = (parity_data.get("status") or "IDLE").upper()
+    running = parity_data.get("running") or status in ("RUNNING", "CHECKING")
     speed_raw = parity_data.get("speed")
     speed_mb = None
     if speed_raw:
@@ -144,13 +145,13 @@ def _parse_parity(parity_data):
             speed_mb = speed_raw
 
     return {
-        "running": running,
-        "status": parity_data.get("status", "IDLE"),
-        "progress": parity_data.get("progress", 0),
+        "running": bool(running),
+        "status": status,
+        "progress": parity_data.get("progress") or 0,
         "speed": f"{speed_mb} MB/s" if speed_mb else None,
-        "errors": parity_data.get("errors", 0),
+        "errors": parity_data.get("errors") or 0,
         "duration": parity_data.get("duration"),
-        "paused": parity_data.get("paused", False),
+        "paused": parity_data.get("paused") or False,
     }
 
 
