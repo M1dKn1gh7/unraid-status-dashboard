@@ -1390,7 +1390,7 @@
           ${poster}
           <div class="stream-info">
             <div class="stream-top">
-              <span class="stream-user">${s.user}</span>
+              <span class="stream-user">${s.user}</span>${s.user_thumb ? `<img src="${s.user_thumb}" style="width:18px;height:18px;border-radius:50%;vertical-align:middle;margin-left:6px;object-fit:cover;">` : ''}
               <span class="stream-decision ${decision.cls}"><span class="stream-decision-dot"></span>${decision.label}</span>
             </div>
             <div class="stream-title">${title}</div>

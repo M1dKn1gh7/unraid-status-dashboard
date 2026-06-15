@@ -51,6 +51,7 @@ def _fetch_tautulli():
                 "location": s.get("location", ""),
                 "player": s.get("player", ""),
                 "thumb": s.get("grandparent_thumb") or s.get("thumb", ""),
+                "user_thumb": s.get("user_thumb", ""),  # add this line
             })
 
         return {
