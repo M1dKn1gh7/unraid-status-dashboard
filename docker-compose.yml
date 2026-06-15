@@ -9,6 +9,8 @@ services:
       - .env
     networks:
       - docker-media-network
+    volumes:
+      - /var/local/emhttp:/host/emhttp:ro
     environment:
       - TZ=Europe/London
 

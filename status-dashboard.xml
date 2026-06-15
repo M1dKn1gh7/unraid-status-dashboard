@@ -20,4 +20,5 @@
   <DateInstalled/>
   <Config Name="Port" Target="9090" Default="9090" Mode="tcp" Description="Dashboard web port" Type="Port" Display="always" Required="true" Mask="false">9090</Config>
   <Config Name="Timezone" Target="TZ" Default="Europe/London" Mode="" Description="Container timezone" Type="Variable" Display="always" Required="false" Mask="false">Europe/London</Config>
+  <Config Name="Emhttp Directory" Target="/host/emhttp" Default="/var/local/emhttp" Mode="ro" Description="Unraid emhttp state directory (for real-time parity progress)" Type="Path" Display="always" Required="false" Mask="false">/var/local/emhttp</Config>
 </Container>

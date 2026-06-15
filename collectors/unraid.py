@@ -59,7 +59,15 @@ def collect():
 
 def _fetch_parity_from_varini():
     path = Config.UNRAID_VAR_INI
-    if not path or not os.path.isfile(path):
+    if not path:
+        return None
+
+    # If path is a directory (preferred mount), look for var.ini inside it.
+    # Directory mounts avoid Docker's stale-inode bug with atomic file replacements.
+    if os.path.isdir(path):
+        path = os.path.join(path, "var.ini")
+
+    if not os.path.isfile(path):
         return None
 
     try:
