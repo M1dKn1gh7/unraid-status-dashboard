@@ -29,6 +29,9 @@
     --green-glow: rgba(52, 199, 89, 0.15);
     --amber-glow: rgba(255, 149, 0, 0.15);
     --red-glow: rgba(255, 59, 48, 0.15);
+
+    --dl-color: #5AC8FA;
+    --ul-color: #BF5AF2;
   }
 
   body {
@@ -893,8 +896,8 @@
       <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
         <div>
           <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
-            <span style="font-size:11px; color:var(--text-secondary);">Download</span>
-            <span style="font-size:12px; font-weight:500; font-variant-numeric:tabular-nums; color:var(--text-primary);" id="wanDown">-- Mbps</span>
+            <span style="font-size:11px; color:var(--dl-color);">Download</span>
+            <span style="font-size:12px; font-weight:500; font-variant-numeric:tabular-nums; color:var(--dl-color);" id="wanDown">-- Mbps</span>
           </div>
           <div class="bar-track" style="height:6px;">
             <div class="bar-fill green" id="wanDownBar" style="width:0%"></div>
@@ -902,8 +905,8 @@
         </div>
         <div>
           <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
-            <span style="font-size:11px; color:var(--text-secondary);">Upload</span>
-            <span style="font-size:12px; font-weight:500; font-variant-numeric:tabular-nums; color:var(--text-primary);" id="wanUp">-- Mbps</span>
+            <span style="font-size:11px; color:var(--ul-color);">Upload</span>
+            <span style="font-size:12px; font-weight:500; font-variant-numeric:tabular-nums; color:var(--ul-color);" id="wanUp">-- Mbps</span>
           </div>
           <div class="bar-track" style="height:6px;">
             <div class="bar-fill green" id="wanUpBar" style="width:0%"></div>
@@ -940,7 +943,7 @@
 
     <div class="card">
       <div class="card-label">Top Clients</div>
-      <div class="stream-list" id="topClientsList">
+      <div style="display:flex; flex-direction:column; gap:8px; margin-top:8px;" id="topClientsList">
         <div class="empty">Loading...</div>
       </div>
     </div>
@@ -1601,16 +1604,11 @@
     const topList = document.getElementById('topClientsList');
     if (d.top_clients && d.top_clients.length > 0) {
       topList.innerHTML = d.top_clients.map(c => `
-        <div class="stream-item">
-          <div class="stream-top">
-            <span class="stream-user">${c.name || '(unnamed)'}</span>
-            <span style="font-size:11px; color:var(--text-secondary); font-variant-numeric:tabular-nums;">${c.total_mbps} Mbps</span>
-          </div>
-          <div style="display:flex; gap:12px; font-size:11px; color:var(--text-dim);">
-            <span>&#8595; ${c.down_mbps}</span>
-            <span>&#8593; ${c.up_mbps}</span>
-            <span style="margin-left:auto;">${c.is_wired ? 'Wired' : 'WiFi'}</span>
-          </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:12px; font-weight:500; color:var(--text-secondary); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${c.name || '(unnamed)'}</span>
+          <span style="font-size:11px; font-variant-numeric:tabular-nums; color:var(--dl-color);">&#8595; ${c.down_mbps}</span>
+          <span style="font-size:11px; font-variant-numeric:tabular-nums; color:var(--ul-color);">&#8593; ${c.up_mbps}</span>
+          <span style="font-size:10px; color:var(--text-dim); min-width:32px; text-align:right;">${c.is_wired ? 'Wired' : 'WiFi'}</span>
         </div>
       `).join('');
     } else {
